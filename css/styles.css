@@ -104,6 +104,7 @@ body {
     width: 112px;
     height: 112px;
     user-select: none; /* テキスト選択を無効化 */
+    -webkit-user-drag: element; /* Safariでのドラッグを有効化 */
 }
 
 .shortcut-item:hover {
@@ -427,11 +428,21 @@ body {
 /* フォルダーホバー時のエフェクト */
 .shortcut-item.folder-hover {
     background-color: rgba(26, 115, 232, 0.15);
-    transform: scale(1.03);
+    transform: scale(1.05);
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.3);
+    transition: all 0.2s ease;
 }
 
 .shortcut-item.folder-hover .shortcut-icon {
     transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* ドロップインジケーター */
+.drop-indicator {
+    background-color: #1a73e8;
+    border-radius: 1px;
+    transition: all 0.2s ease;
 }
 
 /* 挿入スペーサー */
@@ -536,6 +547,25 @@ body {
     pointer-events: none;
     z-index: 9998;
     border-radius: 4px;
+}
+
+/* SortableJS styles */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+.sortable-chosen {
+    opacity: 0.8;
+}
+
+.sortable-drag {
+    opacity: 0.9 !important;
+}
+
+.sortable-fallback {
+    opacity: 0.8;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: scale(1.02);
 }
 
 /* 範囲選択されたアイテム */
