@@ -20,6 +20,21 @@ class MouseDragManager {
 
     init() {
         console.log('=== MouseDragManager initialized ===');
+        // グローバルイベントは一度だけ登録
+        if (!this.globalEventsAttached) {
+            document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+            document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+            
+            // エスケープキーでドラッグをキャンセル
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.isDragging) {
+                    this.cancelDrag();
+                }
+            });
+            
+            this.globalEventsAttached = true;
+        }
+        
         this.attachEventListeners();
     }
 
@@ -29,20 +44,15 @@ class MouseDragManager {
 
         // 各ショートカットアイテムにイベントを設定
         const items = grid.querySelectorAll('.shortcut-item');
-        items.forEach(item => {
+        console.log(`[MouseDragManager] Attaching listeners to ${items.length} items`);
+        items.forEach((item, index) => {
+            // 追加ボタンはスキップ
+            if (item.dataset.isAddButton === 'true') {
+                console.log(`[MouseDragManager] Skipping add button`);
+                return;
+            }
             // マウスダウンでドラッグ開始
             item.addEventListener('mousedown', (e) => this.handleMouseDown(e, item));
-        });
-
-        // グローバルイベント
-        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        
-        // エスケープキーでドラッグをキャンセル
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isDragging) {
-                this.cancelDrag();
-            }
         });
     }
 

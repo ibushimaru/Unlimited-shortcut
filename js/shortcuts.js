@@ -439,10 +439,15 @@ class ShortcutManager {
         
         // マウスドラッグも同時に使用
         if (window.MouseDragManager) {
-            this.mouseDragManager = new MouseDragManager(this);
+            // 既存のインスタンスがある場合は再利用
+            if (!this.mouseDragManager) {
+                console.log('[ShortcutManager] Creating new MouseDragManager instance');
+                this.mouseDragManager = new MouseDragManager(this);
+                // グローバルに公開（範囲選択機能との連携のため）
+                window.mouseDragManager = this.mouseDragManager;
+            }
+            console.log('[ShortcutManager] Initializing MouseDragManager');
             this.mouseDragManager.init();
-            // グローバルに公開（範囲選択機能との連携のため）
-            window.mouseDragManager = this.mouseDragManager;
         }
     }
 
