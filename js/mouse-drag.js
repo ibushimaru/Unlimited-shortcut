@@ -495,30 +495,34 @@ class MouseDragManager {
         console.log(`[moveItems] Grid layout: columns=${columns}, gap=${gap}`);
         console.log(`[moveItems] Dragged item index: ${this.draggedIndex}`);
         
-        // 現在表示されているすべてのアイテムを取得
-        const allItems = Array.from(grid.children).filter(child => 
+        // プレースホルダーの位置を取得
+        const placeholderDOMIndex = Array.from(grid.children).indexOf(this.placeholder);
+        console.log(`[moveItems] Placeholder DOM index: ${placeholderDOMIndex}`);
+        
+        // プレースホルダーより前にあるアイテム数をカウント（ドラッグ中と追加ボタンを除く）
+        let placeholderLogicalIndex = 0;
+        for (let i = 0; i < placeholderDOMIndex; i++) {
+            const child = grid.children[i];
+            if (child.classList.contains('shortcut-item') && 
+                !child.dataset.isAddButton &&
+                parseInt(child.dataset.index) !== this.draggedIndex) {
+                placeholderLogicalIndex++;
+            }
+        }
+        console.log(`[moveItems] Placeholder logical index: ${placeholderLogicalIndex}`);
+        
+        // ドラッグ中アイテムの元の位置
+        const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
+        console.log(`[moveItems] Dragged item original position: ${draggedOriginalPos}`);
+        
+        // 各アイテムを処理
+        const items = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton
+            !child.dataset.isAddButton &&
+            child !== this.placeholder
         );
         
-        // ドラッグ中アイテムとプレースホルダーの位置を取得
-        const draggedItem = allItems.find(item => parseInt(item.dataset.index) === this.draggedIndex);
-        const draggedItemDOMIndex = allItems.indexOf(draggedItem);
-        const placeholderIndex = Array.from(grid.children).indexOf(this.placeholder);
-        
-        // 表示されているアイテムのインデックスをログ出力
-        const visibleItems = allItems.map((item, idx) => ({
-            index: parseInt(item.dataset.index),
-            domPosition: idx,
-            isDragged: parseInt(item.dataset.index) === this.draggedIndex
-        }));
-        
-        console.log(`[moveItems] Visible items:`, visibleItems);
-        console.log(`[moveItems] Dragged item DOM position: ${draggedItemDOMIndex}`);
-        console.log(`[moveItems] Placeholder DOM position: ${placeholderIndex}`);
-        
-        // 各アイテムの移動を計算
-        allItems.forEach((item, currentIndex) => {
+        items.forEach((item) => {
             const itemIndex = parseInt(item.dataset.index);
             
             // ドラッグ中のアイテムの処理
@@ -528,47 +532,30 @@ class MouseDragManager {
                 return;
             }
             
-            // 元の位置（ドラッグ開始時の位置）を取得
-            const originalPosition = this.originalItemPositions.get(itemIndex) || currentIndex;
-            console.log(`[moveItems] Item ${itemIndex}: original saved position = ${originalPosition}`);
+            // 元の位置を取得
+            const originalPosition = this.originalItemPositions.get(itemIndex);
+            if (originalPosition === undefined) {
+                console.warn(`[moveItems] No original position for item ${itemIndex}`);
+                return;
+            }
             
             // 目標位置を計算
             let targetPosition = originalPosition;
             
-            // プレースホルダーの位置に基づいて調整
-            if (placeholderIndex !== -1) {
-                // プレースホルダーの論理位置を計算（ドラッグ中アイテムを除いたアイテム数）
-                let placeholderLogicalPos = 0;
-                for (let i = 0; i < placeholderIndex; i++) {
-                    const child = grid.children[i];
-                    if (child.classList.contains('shortcut-item') && 
-                        !child.dataset.isAddButton &&
-                        parseInt(child.dataset.index) !== this.draggedIndex) {
-                        placeholderLogicalPos++;
-                    }
+            // ドラッグアイテムの元位置とプレースホルダー位置に基づいて調整
+            if (draggedOriginalPos < originalPosition) {
+                // ドラッグアイテムが元々前にあった場合
+                targetPosition--; // ドラッグアイテムが抜けた分、前に詰める
+                
+                if (placeholderLogicalIndex <= targetPosition) {
+                    // プレースホルダーがターゲット位置以前にある場合
+                    targetPosition++; // プレースホルダーの分だけ後ろにずらす
                 }
-                
-                // ドラッグ中アイテムの元の位置
-                const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
-                
-                if (originalPosition > draggedOriginalPos) {
-                    // ドラッグ中アイテムより後ろにあったアイテム
-                    if (placeholderLogicalPos <= originalPosition - 1) {
-                        // プレースホルダーが元の位置より前にある
-                        targetPosition = originalPosition - 1;
-                    } else {
-                        // プレースホルダーが元の位置より後ろにある
-                        targetPosition = originalPosition;
-                    }
-                } else {
-                    // ドラッグ中アイテムより前にあったアイテム
-                    if (placeholderLogicalPos <= originalPosition) {
-                        // プレースホルダーが元の位置以前にある
-                        targetPosition = originalPosition;
-                    } else {
-                        // プレースホルダーが元の位置より後ろにある
-                        targetPosition = originalPosition + 1;
-                    }
+            } else {
+                // ドラッグアイテムが元々後ろにあった場合
+                if (placeholderLogicalIndex <= originalPosition) {
+                    // プレースホルダーが元位置以前にある場合
+                    targetPosition++; // プレースホルダーの分だけ後ろにずらす
                 }
             }
             
@@ -589,7 +576,8 @@ class MouseDragManager {
                     console.warn(`[moveItems] WARNING: Large movement detected for item ${itemIndex}!`);
                     console.warn(`  Original: row=${oldRow}, col=${oldCol}`);
                     console.warn(`  Target: row=${newRow}, col=${newCol}`);
-                    console.warn(`  Columns: ${columns}`);
+                    console.warn(`  Placeholder logical index: ${placeholderLogicalIndex}`);
+                    console.warn(`  Dragged original pos: ${draggedOriginalPos}`);
                 }
             }
             
