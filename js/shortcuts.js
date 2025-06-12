@@ -404,9 +404,27 @@ class ShortcutManager {
             grid.appendChild(item);
         });
 
-        // 旧フォルダーシステムのコードを削除（階層構造は使用しない）
-
-        // 追加ボタンを再配置しないようにする（HTMLに固定配置）
+        // 追加ボタンを最後に追加（必ず最後になるように）
+        const addButton = document.createElement('div');
+        addButton.className = 'add-shortcut';
+        addButton.id = 'addShortcut';
+        addButton.draggable = false; // ドラッグを無効化
+        addButton.innerHTML = `
+            <div class="add-icon">+</div>
+            <span data-i18n="addShortcut">${chrome.i18n.getMessage('addShortcut') || 'Add shortcut'}</span>
+        `;
+        // データ属性を追加して識別しやすくする
+        addButton.dataset.isAddButton = 'true';
+        grid.appendChild(addButton);
+        
+        // 追加ボタンのクリックイベント
+        addButton.addEventListener('click', () => {
+            const event = new Event('click');
+            const modalTrigger = document.getElementById('addShortcut');
+            if (modalTrigger && window.openModal) {
+                window.openModal();
+            }
+        });
         
         // アニメーション完了後にフラグを削除
         if (wasAnimating) {

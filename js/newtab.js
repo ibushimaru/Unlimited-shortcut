@@ -35,10 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // イベントリスナーの設定
 function setupEventListeners() {
-    // 追加ボタン
-    elements.addBtn.addEventListener('click', () => {
-        openModal();
-    });
+    // 追加ボタン（動的に生成されるため、グローバルにopenModalを公開）
+    window.openModal = openModal;
 
     // モーダルのキャンセルボタン
     elements.cancelBtn.addEventListener('click', () => {

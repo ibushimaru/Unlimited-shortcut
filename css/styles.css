@@ -202,6 +202,9 @@ body {
     border: 2px dashed #dadce0;
     width: 112px;
     height: 112px;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: auto;
 }
 
 .add-shortcut:hover {
@@ -355,7 +358,7 @@ body {
 
 .drag-over {
     background-color: #e8f0fe;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
     transform: scale(1.02);
 }
 
@@ -374,13 +377,26 @@ body {
 /* ドロップゾーン（移動先の位置） */
 .shortcut-placeholder.drop-zone {
     background-color: transparent;
-    border: 3px solid #1a73e8;
+    border: 2px solid #1a73e8;
     border-radius: 8px;
     box-sizing: border-box;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: fadeIn 0.4s ease-out;
+    opacity: 0.8;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 0.8;
+        transform: scale(1);
+    }
 }
 
 .shortcut-placeholder.drop-zone::before {
@@ -476,7 +492,9 @@ body {
 }
 
 .shortcut-item {
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
+                opacity 0.35s ease-out,
+                background-color 0.25s ease;
 }
 
 /* アニメーション中のグリッド */
@@ -486,8 +504,8 @@ body {
 
 @keyframes slideIn {
     from {
-        opacity: 0.8;
-        transform: scale(0.9) translateY(5px);
+        opacity: 0;
+        transform: scale(0.92) translateY(8px);
     }
     to {
         opacity: 1;
@@ -497,8 +515,17 @@ body {
 
 /* ドラッグ中のアイテム */
 .shortcut-item.dragging {
-    opacity: 0.5;
-    transform: scale(0.95);
+    /* スタイルは JavaScript で制御するため、ここでは最小限に */
+    cursor: grabbing !important;
+}
+
+/* スムーズな動きのための追加設定 */
+.shortcuts-grid {
+    will-change: transform;
+}
+
+.shortcut-item.moving {
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
 /* 範囲選択ボックス */
