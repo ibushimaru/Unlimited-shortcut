@@ -371,15 +371,41 @@ body {
     box-shadow: 0 0 0 2px #1a73e8;
 }
 
-/* 並び替え可能な範囲の表示 */
-.shortcut-item.reorder-ready {
-    box-shadow: 0 0 0 2px #1a73e8;
-    background-color: rgba(26, 115, 232, 0.05);
-    transition: all 0.15s ease;
+/* ドロップゾーン（移動先の位置） */
+.shortcut-placeholder.drop-zone {
+    background-color: transparent;
+    border: 3px solid #1a73e8;
+    border-radius: 8px;
+    box-sizing: border-box;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.shortcut-item.reorder-ready .shortcut-icon {
-    transform: scale(0.95);
+.shortcut-placeholder.drop-zone::before {
+    content: '';
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    background-color: rgba(26, 115, 232, 0.1);
+    border-radius: 50%;
+    animation: dropZonePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropZonePulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0.3;
+    }
 }
 
 /* フォルダーホバー時のエフェクト */

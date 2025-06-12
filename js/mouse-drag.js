@@ -104,6 +104,9 @@ class MouseDragManager {
                 this.draggedElement.style.transform = 'scale(1.05)';
                 this.draggedElement.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
                 
+                // ドラッグ中のアイテムのクラスを追加
+                this.draggedElement.classList.add('dragging');
+                
                 console.log('Drag started after threshold');
             }
         }
@@ -152,9 +155,6 @@ class MouseDragManager {
                             this.currentDropMode = 'reorder';
                             this.clearHoverEffects();
                             this.showInsertMarker(elementBelow, dropXPercent < 0.5);
-                            
-                            // 並び替え可能な範囲に入ったことを視覚的に表示
-                            elementBelow.classList.add('reorder-ready');
                         }
                     }
                 } else if (elementBelow.classList.contains('folder-item')) {
@@ -179,16 +179,31 @@ class MouseDragManager {
             // ドロップ先を検出
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
             
+            if (!elementBelow) {
+                console.log('No element below, cancelling drop');
+                this.cleanup();
+                return;
+            }
+            
             // フォルダーにドロップした場合
-            if (elementBelow && elementBelow.classList.contains('folder-item')) {
+            if (elementBelow.classList.contains('folder-item')) {
                 const folderId = elementBelow.dataset.folderId;
                 if (folderId) {
                     console.log('Dropping on folder:', folderId);
                     this.shortcutManager.moveShortcutToFolder(this.draggedIndex, folderId);
                 }
             }
+            // プレースホルダー（ドロップゾーン）にドロップした場合
+            else if (elementBelow === this.placeholder || elementBelow.classList.contains('drop-zone')) {
+                console.log('Dropped on placeholder/drop zone');
+                if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined && 
+                    this.pendingInsertIndex !== this.draggedIndex) {
+                    console.log('Reordering to drop zone position:', this.pendingInsertIndex);
+                    this.shortcutManager.reorder(this.draggedIndex, this.pendingInsertIndex);
+                }
+            }
             // ショートカットにドロップした場合
-            else if (elementBelow && elementBelow.classList.contains('shortcut-item')) {
+            else if (elementBelow.classList.contains('shortcut-item')) {
                 const targetIndex = parseInt(elementBelow.dataset.index);
                 
                 if (targetIndex !== this.draggedIndex) {
@@ -299,6 +314,14 @@ class MouseDragManager {
             this.pendingInsertIndex--;
         }
         
+        // プレースホルダーを作成または移動
+        if (!this.placeholder) {
+            this.placeholder = document.createElement('div');
+            this.placeholder.className = 'shortcut-placeholder drop-zone';
+            this.placeholder.style.width = '112px';
+            this.placeholder.style.height = '112px';
+        }
+        
         // アイコンをシフトする（Transformを使用）
         items.forEach((item, index) => {
             const itemIndex = parseInt(item.dataset.index);
@@ -334,6 +357,14 @@ class MouseDragManager {
             
             item.style.transition = 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)';
         });
+        
+        // プレースホルダーを挿入位置に配置
+        const insertBeforeItem = items.find(item => parseInt(item.dataset.index) === this.pendingInsertIndex);
+        if (insertBeforeItem && insertBeforeItem.parentNode) {
+            insertBeforeItem.parentNode.insertBefore(this.placeholder, insertBeforeItem);
+        } else if (grid) {
+            grid.appendChild(this.placeholder);
+        }
     }
     
     hideInsertMarker() {
@@ -345,6 +376,11 @@ class MouseDragManager {
                 item.style.transform = '';
                 item.style.opacity = '';
             });
+        }
+        
+        // プレースホルダーを削除
+        if (this.placeholder && this.placeholder.parentNode) {
+            this.placeholder.parentNode.removeChild(this.placeholder);
         }
         
         this.pendingInsertIndex = null;
@@ -361,6 +397,7 @@ class MouseDragManager {
             this.draggedElement.style.top = '';
             this.draggedElement.style.transform = '';
             this.draggedElement.style.boxShadow = '';
+            this.draggedElement.classList.remove('dragging');
         }
 
 
