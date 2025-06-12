@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Log Viewer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #1a73e8;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1557b0;
+        }
+        
+        .btn-secondary {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #dadce0;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .btn-danger {
+            background-color: #ea4335;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #d33b2c;
+        }
+        
+        .log-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 0;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .log-type {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .type-window-error {
+            background-color: #fce8e6;
+            color: #d93025;
+        }
+        
+        .type-console-error {
+            background-color: #fce8e6;
+            color: #d93025;
+        }
+        
+        .type-console-warn {
+            background-color: #fef7e0;
+            color: #f9ab00;
+        }
+        
+        .type-unhandled-rejection {
+            background-color: #e8f0fe;
+            color: #1967d2;
+        }
+        
+        .log-timestamp {
+            color: #5f6368;
+            font-size: 12px;
+        }
+        
+        .log-message {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            word-break: break-word;
+        }
+        
+        .log-stack {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        
+        .log-location {
+            color: #5f6368;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #5f6368;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background-color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            flex: 1;
+        }
+        
+        .stat-label {
+            color: #5f6368;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error Log Viewer</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Errors</div>
+                <div class="stat-value" id="totalErrors">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Window Errors</div>
+                <div class="stat-value" id="windowErrors">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Console Errors</div>
+                <div class="stat-value" id="consoleErrors">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Warnings</div>
+                <div class="stat-value" id="warnings">0</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn-secondary" onclick="refreshLogs()">
+                <span>🔄</span> Refresh
+            </button>
+            <button class="btn-primary" onclick="copyLogs()">
+                <span>📋</span> Copy to Clipboard
+            </button>
+            <button class="btn-primary" onclick="downloadLogs()">
+                <span>💾</span> Download
+            </button>
+            <button class="btn-danger" onclick="clearLogs()">
+                <span>🗑️</span> Clear Logs
+            </button>
+        </div>
+        
+        <div class="log-container" id="logContainer">
+            <div class="empty-state">
+                <p>No error logs found</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/error-logger.js"></script>
+    <script>
+        async function loadLogs() {
+            const result = await chrome.storage.local.get(['errorLogs']);
+            const logs = result.errorLogs || [];
+            displayLogs(logs);
+            updateStats(logs);
+        }
+        
+        function displayLogs(logs) {
+            const container = document.getElementById('logContainer');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No error logs found</p></div>';
+                return;
+            }
+            
+            const sortedLogs = [...logs].reverse(); // 最新のログを最初に表示
+            
+            container.innerHTML = sortedLogs.map((log, index) => `
+                <div class="log-entry">
+                    <div class="log-header">
+                        <span class="log-type type-${log.type}">${log.type.replace('-', ' ')}</span>
+                        <span class="log-timestamp">${new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+                    ${log.message ? `<div class="log-message">${escapeHtml(log.message)}</div>` : ''}
+                    ${log.filename ? `<div class="log-location">📍 ${log.filename}:${log.lineno}:${log.colno}</div>` : ''}
+                    ${log.error && log.error.stack ? `<div class="log-stack">${escapeHtml(log.error.stack)}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function updateStats(logs) {
+            const total = logs.length;
+            const windowErrors = logs.filter(log => log.type === 'window-error').length;
+            const consoleErrors = logs.filter(log => log.type === 'console-error').length;
+            const warnings = logs.filter(log => log.type === 'console-warn').length;
+            
+            document.getElementById('totalErrors').textContent = total;
+            document.getElementById('windowErrors').textContent = windowErrors;
+            document.getElementById('consoleErrors').textContent = consoleErrors;
+            document.getElementById('warnings').textContent = warnings;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function refreshLogs() {
+            await loadLogs();
+        }
+        
+        async function copyLogs() {
+            const success = await window.errorLogger.copyLogsToClipboard();
+            if (success) {
+                alert('Error logs copied to clipboard!');
+            } else {
+                alert('Failed to copy logs to clipboard');
+            }
+        }
+        
+        function downloadLogs() {
+            window.errorLogger.downloadLogs();
+        }
+        
+        async function clearLogs() {
+            if (confirm('Are you sure you want to clear all error logs?')) {
+                window.errorLogger.clearLogs();
+                await refreshLogs();
+            }
+        }
+        
+        // 初回読み込み
+        loadLogs();
+        
+        // 自動更新（5秒ごと）
+        setInterval(refreshLogs, 5000);
+    </script>
+</body>
+</html>
