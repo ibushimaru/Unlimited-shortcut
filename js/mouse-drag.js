@@ -469,82 +469,67 @@ class MouseDragManager {
     }
     
     moveItemsForPlaceholder(grid) {
-        // グリッドのレイアウト情報を取得
+        // CSS Gridのレイアウト情報を取得
         const gridRect = grid.getBoundingClientRect();
         const gridStyle = window.getComputedStyle(grid);
         const gap = parseInt(gridStyle.gap || gridStyle.gridGap || '16');
         const itemWidth = 112;
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
-        // プレースホルダーを一時的に削除してオリジナルの位置を取得
-        const placeholderParent = this.placeholder.parentNode;
-        const placeholderNextSibling = this.placeholder.nextSibling;
-        if (placeholderParent) {
-            placeholderParent.removeChild(this.placeholder);
-        }
+        console.log(`[moveItems] Grid layout: columns=${columns}, gap=${gap}`);
         
-        // オリジナルの状態でアイテムを取得
-        const allItems = Array.from(grid.children).filter(child => 
+        // すべてのアイテムを取得（追加ボタンを除く）
+        const items = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton
+            !child.dataset.isAddButton &&
+            child !== this.placeholder
         );
         
-        // 各アイテムのオリジナル位置を記録
-        const originalPositions = new Map();
-        allItems.forEach((item, index) => {
-            originalPositions.set(item, index);
-        });
+        // プレースホルダーのDOM上の位置を取得
+        const placeholderDOMIndex = Array.from(grid.children).indexOf(this.placeholder);
         
-        // プレースホルダーを元に戻す
-        if (placeholderParent) {
-            if (placeholderNextSibling) {
-                placeholderParent.insertBefore(this.placeholder, placeholderNextSibling);
-            } else {
-                placeholderParent.appendChild(this.placeholder);
-            }
-        }
-        
-        // 現在の状態で再度アイテムを取得
-        const currentItems = Array.from(grid.children).filter(child => 
-            child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton
-        );
-        
-        // 各アイテムの移動を計算
-        currentItems.forEach((item, newIndex) => {
+        // 各アイテムの現在位置と目標位置を計算
+        items.forEach((item, index) => {
             const itemIndex = parseInt(item.dataset.index);
             
-            // ドラッグ中のアイテムは透明にするだけ
+            // ドラッグ中のアイテムの処理
             if (itemIndex === this.draggedIndex) {
                 item.style.pointerEvents = 'none';
+                item.style.opacity = '0.3';
                 return;
             }
             
-            // オリジナル位置を取得
-            const originalIndex = originalPositions.get(item);
-            if (originalIndex === undefined) return;
+            // アイテムの現在のDOM位置
+            const itemDOMIndex = Array.from(grid.children).indexOf(item);
             
-            // プレースホルダーによる影響を計算
-            let adjustedNewIndex = newIndex;
+            // プレースホルダーを考慮した論理位置を計算
+            let logicalPosition = index;
+            if (placeholderDOMIndex !== -1 && placeholderDOMIndex <= itemDOMIndex) {
+                logicalPosition++;
+            }
             
-            // プレースホルダーの位置を取得
-            const allChildren = Array.from(grid.children);
-            const placeholderPos = allChildren.indexOf(this.placeholder);
-            const itemPos = allChildren.indexOf(item);
-            
-            // プレースホルダーがアイテムより前にある場合、位置を調整
-            if (placeholderPos !== -1 && placeholderPos < itemPos) {
-                adjustedNewIndex = newIndex - 1;
+            // 元の位置（プレースホルダーがない状態）
+            let originalPosition = index;
+            const draggedItemDOMIndex = Array.from(grid.children).findIndex(child => 
+                child.classList.contains('shortcut-item') && 
+                parseInt(child.dataset.index) === this.draggedIndex
+            );
+            if (draggedItemDOMIndex !== -1 && draggedItemDOMIndex <= itemDOMIndex) {
+                originalPosition++;
             }
             
             // 移動量を計算
-            const oldRow = Math.floor(originalIndex / columns);
-            const oldCol = originalIndex % columns;
-            const newRow = Math.floor(adjustedNewIndex / columns);
-            const newCol = adjustedNewIndex % columns;
+            const oldRow = Math.floor(originalPosition / columns);
+            const oldCol = originalPosition % columns;
+            const newRow = Math.floor(logicalPosition / columns);
+            const newCol = logicalPosition % columns;
             
-            const deltaX = (newCol - oldCol) * (112 + 16);
-            const deltaY = (newRow - oldRow) * (112 + 16);
+            const deltaX = (newCol - oldCol) * (itemWidth + gap);
+            const deltaY = (newRow - oldRow) * (itemWidth + gap);
+            
+            if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
+                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${logicalPosition}, delta(${deltaX},${deltaY})`);
+            }
             
             // アニメーション適用
             if (deltaX !== 0 || deltaY !== 0) {
@@ -562,6 +547,8 @@ class MouseDragManager {
         if (grid) {
             const items = grid.querySelectorAll('.shortcut-item');
             items.forEach(item => {
+                // トランジションを一時的に無効化してリセット
+                item.style.transition = 'none';
                 item.style.transform = '';
                 item.style.pointerEvents = '';
                 item.classList.remove('moving');
@@ -569,12 +556,24 @@ class MouseDragManager {
                 if (!this.dragClone || item !== this.draggedElement) {
                     item.style.opacity = '';
                 }
+                
+                // 次のフレームでトランジションを再有効化
+                requestAnimationFrame(() => {
+                    item.style.transition = '';
+                });
             });
         }
         
         // プレースホルダーを削除
         if (this.placeholder && this.placeholder.parentNode) {
-            this.placeholder.parentNode.removeChild(this.placeholder);
+            // フェードアウトアニメーション
+            this.placeholder.style.transition = 'opacity 0.2s ease';
+            this.placeholder.style.opacity = '0';
+            setTimeout(() => {
+                if (this.placeholder && this.placeholder.parentNode) {
+                    this.placeholder.parentNode.removeChild(this.placeholder);
+                }
+            }, 200);
         }
         
         this.pendingInsertIndex = null;
