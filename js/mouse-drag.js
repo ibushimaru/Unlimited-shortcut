@@ -183,7 +183,11 @@ class MouseDragManager {
                             const grid = document.getElementById('shortcutsGrid');
                             const gridRect = grid.getBoundingClientRect();
                             const gridStyle = window.getComputedStyle(grid);
-                            const columns = Math.floor((gridRect.width + parseInt(gridStyle.gap || 16)) / (112 + 16));
+                            const gap = parseInt(gridStyle.gap || gridStyle.gridGap || '16');
+                            const itemWidth = 112; // ショートカットアイテムの幅
+                            const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
+                            
+                            console.log(`[MouseDrag] Grid columns: ${columns}, width: ${gridRect.width}, gap: ${gap}`);
                             
                             // ターゲット要素のDOM上の位置を取得
                             const allVisibleItems = Array.from(grid.children).filter(child => 
@@ -194,9 +198,17 @@ class MouseDragManager {
                             const targetDomIndex = allVisibleItems.indexOf(elementBelow);
                             const targetColumn = targetDomIndex % columns;
                             const isRightEdge = targetColumn === columns - 1;
+                            const isLastItem = targetDomIndex === allVisibleItems.length - 1;
                             
+                            console.log(`[MouseDrag] Target: index=${targetDomIndex}, column=${targetColumn}, isRightEdge=${isRightEdge}, isLastItem=${isLastItem}`);
+                            
+                            // 最後のアイテムかつ右側にドロップする場合の特別処理
+                            if (isLastItem && dropXPercent > 0.5) {
+                                // 最後のアイテムの後ろに挿入
+                                this.showInsertMarker(elementBelow, false);
+                            }
                             // 右端でのドロップの場合、次の行の最初に移動
-                            if (isRightEdge && dropXPercent > 0.5) {
+                            else if (isRightEdge && dropXPercent > 0.5) {
                                 // 次の行の最初にプレースホルダーを表示
                                 this.showInsertMarker(elementBelow, false);
                             } else {
@@ -460,7 +472,9 @@ class MouseDragManager {
         // グリッドのレイアウト情報を取得
         const gridRect = grid.getBoundingClientRect();
         const gridStyle = window.getComputedStyle(grid);
-        const columns = Math.floor((gridRect.width + parseInt(gridStyle.gap || 16)) / (112 + 16));
+        const gap = parseInt(gridStyle.gap || gridStyle.gridGap || '16');
+        const itemWidth = 112;
+        const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
         // プレースホルダーを一時的に削除してオリジナルの位置を取得
         const placeholderParent = this.placeholder.parentNode;
