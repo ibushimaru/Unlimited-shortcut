@@ -371,6 +371,17 @@ body {
     box-shadow: 0 0 0 2px #1a73e8;
 }
 
+/* 並び替え可能な範囲の表示 */
+.shortcut-item.reorder-ready {
+    box-shadow: 0 0 0 2px #1a73e8;
+    background-color: rgba(26, 115, 232, 0.05);
+    transition: all 0.15s ease;
+}
+
+.shortcut-item.reorder-ready .shortcut-icon {
+    transform: scale(0.95);
+}
+
 /* フォルダーホバー時のエフェクト */
 .shortcut-item.folder-hover {
     background-color: rgba(26, 115, 232, 0.15);
@@ -439,18 +450,18 @@ body {
 }
 
 .shortcut-item {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* アニメーション中のグリッド */
 #shortcutsGrid.animating .shortcut-item {
-    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes slideIn {
     from {
-        opacity: 0;
-        transform: scale(0.8) translateY(10px);
+        opacity: 0.8;
+        transform: scale(0.9) translateY(5px);
     }
     to {
         opacity: 1;

@@ -10,7 +10,7 @@ class MouseDragManager {
         this.startY = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.dragThreshold = 5; // ドラッグと判定する最小移動距離
+        this.dragThreshold = 3; // ドラッグと判定する最小移動距離（より敏感に）
         this.hasMoved = false; // 実際にドラッグ移動が発生したかのフラグ
         this.insertMarker = null; // 挿入位置を示すマーカー
         this.currentDropMode = null; // 'reorder', 'folder', null
@@ -36,6 +36,13 @@ class MouseDragManager {
         // グローバルイベント
         document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        
+        // エスケープキーでドラッグをキャンセル
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isDragging) {
+                this.cancelDrag();
+            }
+        });
     }
 
     handleMouseDown(e, item) {
@@ -118,23 +125,36 @@ class MouseDragManager {
                         const dropXPercent = dropX / rect.width;
                         
                         // ドロップ位置に基づいてモードを判定
-                        if (dropXPercent < 0.3 || dropXPercent > 0.7) {
-                            // 並び替えモード
-                            this.currentDropMode = 'reorder';
-                            this.clearHoverEffects();
-                            this.showInsertMarker(elementBelow, dropXPercent < 0.5);
-                        } else {
-                            // フォルダー作成/追加モード
+                        const targetShortcut = this.shortcutManager.shortcuts[targetIndex];
+                        const draggedShortcut = this.shortcutManager.shortcuts[this.draggedIndex];
+                        
+                        // フォルダーへのドロップは中央50%のみ
+                        if (targetShortcut && targetShortcut.isFolder && 
+                            dropXPercent >= 0.25 && dropXPercent <= 0.75) {
+                            // フォルダーに追加モード
                             this.currentDropMode = 'folder';
                             this.clearHoverEffects();
                             this.hideInsertMarker();
                             elementBelow.classList.add('drag-over');
+                            elementBelow.classList.add('folder-hover');
+                        } 
+                        // 通常のショートカット同士の場合
+                        else if (!targetShortcut.isFolder && !draggedShortcut.isFolder &&
+                                 dropXPercent >= 0.4 && dropXPercent <= 0.6) {
+                            // フォルダー作成モード（中央20%のみ）
+                            this.currentDropMode = 'folder';
+                            this.clearHoverEffects();
+                            this.hideInsertMarker();
+                            elementBelow.classList.add('drag-over');
+                        }
+                        else {
+                            // それ以外はすべて並び替えモード
+                            this.currentDropMode = 'reorder';
+                            this.clearHoverEffects();
+                            this.showInsertMarker(elementBelow, dropXPercent < 0.5);
                             
-                            // フォルダーの場合は特別なエフェクトを追加
-                            const targetShortcut = this.shortcutManager.shortcuts[targetIndex];
-                            if (targetShortcut && targetShortcut.isFolder) {
-                                elementBelow.classList.add('folder-hover');
-                            }
+                            // 並び替え可能な範囲に入ったことを視覚的に表示
+                            elementBelow.classList.add('reorder-ready');
                         }
                     }
                 } else if (elementBelow.classList.contains('folder-item')) {
@@ -174,13 +194,31 @@ class MouseDragManager {
                 if (targetIndex !== this.draggedIndex) {
                     console.log('=== MOUSE DROP DETECTED ===');
                     console.log('From:', this.draggedIndex, 'To:', targetIndex);
+                    console.log('Current drop mode:', this.currentDropMode);
+                    console.log('Pending insert index:', this.pendingInsertIndex);
                     
-                    // 常に最後に記録された挿入位置を使用
-                    if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined && 
-                        this.pendingInsertIndex !== this.draggedIndex) {
-                        // アイテムがスライドした位置にドロップ
-                        console.log('Reordering to slide position:', this.pendingInsertIndex);
-                        this.shortcutManager.reorder(this.draggedIndex, this.pendingInsertIndex);
+                    // ドロップモードに基づいて処理
+                    if (this.currentDropMode === 'reorder') {
+                        // 並び替え処理
+                        let insertIndex = this.pendingInsertIndex;
+                        
+                        // pendingInsertIndexがない場合は、ドロップ位置から計算
+                        if (insertIndex === null || insertIndex === undefined) {
+                            const rect = elementBelow.getBoundingClientRect();
+                            const dropX = e.clientX - rect.left;
+                            const dropXPercent = dropX / rect.width;
+                            insertIndex = dropXPercent < 0.5 ? targetIndex : targetIndex + 1;
+                            
+                            // ドラッグ元のインデックスを考慮
+                            if (this.draggedIndex < insertIndex) {
+                                insertIndex--;
+                            }
+                        }
+                        
+                        if (insertIndex !== this.draggedIndex) {
+                            console.log('Reordering from', this.draggedIndex, 'to', insertIndex);
+                            this.shortcutManager.reorder(this.draggedIndex, insertIndex);
+                        }
                     } else if (this.currentDropMode === 'folder') {
                         // フォルダー作成/追加処理
                         const draggedShortcut = this.shortcutManager.shortcuts[this.draggedIndex];
@@ -243,6 +281,9 @@ class MouseDragManager {
         document.querySelectorAll('.folder-hover').forEach(el => {
             el.classList.remove('folder-hover');
         });
+        document.querySelectorAll('.reorder-ready').forEach(el => {
+            el.classList.remove('reorder-ready');
+        });
     }
     
     showInsertMarker(targetElement, insertBefore) {
@@ -291,7 +332,7 @@ class MouseDragManager {
                 item.style.transform = '';
             }
             
-            item.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            item.style.transition = 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)';
         });
     }
     
@@ -342,6 +383,17 @@ class MouseDragManager {
         this.placeholder = null;
         this.isDragging = false;
         this.currentDropMode = null;
+    }
+    
+    cancelDrag() {
+        console.log('Drag cancelled');
+        // アイテムのスタイルをリセットしてドラッグをキャンセル
+        if (this.draggedElement) {
+            this.draggedElement.style.transition = 'all 0.3s ease';
+            this.draggedElement.style.transform = 'scale(1)';
+            this.draggedElement.style.opacity = '1';
+        }
+        this.cleanup();
     }
 }
 
