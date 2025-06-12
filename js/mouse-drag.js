@@ -16,6 +16,7 @@ class MouseDragManager {
         this.currentDropMode = null; // 'reorder', 'folder', null
         this.isDisabled = false; // 範囲選択時などにドラッグを無効化
         this.dragClone = null; // ドラッグ中のクローン要素
+        this.originalItemPositions = new Map(); // ドラッグ開始時の各アイテムの位置
     }
 
     init() {
@@ -76,6 +77,21 @@ class MouseDragManager {
         this.draggedElement = item;
         this.draggedIndex = parseInt(item.dataset.index);
         this.hasMoved = false;
+        
+        // ドラッグ開始時の各アイテムの位置を記録
+        const grid = document.getElementById('shortcutsGrid');
+        if (grid) {
+            this.originalItemPositions.clear();
+            const items = Array.from(grid.children).filter(child => 
+                child.classList.contains('shortcut-item') && 
+                !child.dataset.isAddButton
+            );
+            items.forEach((item, index) => {
+                const itemIndex = parseInt(item.dataset.index);
+                this.originalItemPositions.set(itemIndex, index);
+            });
+            console.log('[MouseDrag] Saved original positions:', Array.from(this.originalItemPositions.entries()));
+        }
         
         // マウス位置を記録
         this.startX = e.clientX;
@@ -477,19 +493,32 @@ class MouseDragManager {
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
         console.log(`[moveItems] Grid layout: columns=${columns}, gap=${gap}`);
+        console.log(`[moveItems] Dragged item index: ${this.draggedIndex}`);
         
-        // すべてのアイテムを取得（追加ボタンを除く）
-        const items = Array.from(grid.children).filter(child => 
+        // 現在表示されているすべてのアイテムを取得
+        const allItems = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton &&
-            child !== this.placeholder
+            !child.dataset.isAddButton
         );
         
-        // プレースホルダーのDOM上の位置を取得
-        const placeholderDOMIndex = Array.from(grid.children).indexOf(this.placeholder);
+        // ドラッグ中アイテムとプレースホルダーの位置を取得
+        const draggedItem = allItems.find(item => parseInt(item.dataset.index) === this.draggedIndex);
+        const draggedItemDOMIndex = allItems.indexOf(draggedItem);
+        const placeholderIndex = Array.from(grid.children).indexOf(this.placeholder);
         
-        // 各アイテムの現在位置と目標位置を計算
-        items.forEach((item, index) => {
+        // 表示されているアイテムのインデックスをログ出力
+        const visibleItems = allItems.map((item, idx) => ({
+            index: parseInt(item.dataset.index),
+            domPosition: idx,
+            isDragged: parseInt(item.dataset.index) === this.draggedIndex
+        }));
+        
+        console.log(`[moveItems] Visible items:`, visibleItems);
+        console.log(`[moveItems] Dragged item DOM position: ${draggedItemDOMIndex}`);
+        console.log(`[moveItems] Placeholder DOM position: ${placeholderIndex}`);
+        
+        // 各アイテムの移動を計算
+        allItems.forEach((item, currentIndex) => {
             const itemIndex = parseInt(item.dataset.index);
             
             // ドラッグ中のアイテムの処理
@@ -499,36 +528,45 @@ class MouseDragManager {
                 return;
             }
             
-            // アイテムの現在のDOM位置
+            // 元の位置（ドラッグ開始時の位置）を取得
+            const originalPosition = this.originalItemPositions.get(itemIndex) || currentIndex;
+            console.log(`[moveItems] Item ${itemIndex}: original saved position = ${originalPosition}`);
+            
+            // 目標位置を計算（プレースホルダーとドラッグ中アイテムの影響を考慮）
+            let targetPosition = currentIndex;
+            
+            // DOM上でこのアイテムより前にあるアイテムの数を数える（プレースホルダーとドラッグ中アイテムを除く）
             const itemDOMIndex = Array.from(grid.children).indexOf(item);
+            let itemsBeforeThis = 0;
             
-            // プレースホルダーを考慮した論理位置を計算
-            let logicalPosition = index;
-            if (placeholderDOMIndex !== -1 && placeholderDOMIndex <= itemDOMIndex) {
-                logicalPosition++;
+            for (let i = 0; i < itemDOMIndex; i++) {
+                const child = grid.children[i];
+                if (child.classList.contains('shortcut-item') && 
+                    !child.dataset.isAddButton &&
+                    child !== this.placeholder &&
+                    parseInt(child.dataset.index) !== this.draggedIndex) {
+                    itemsBeforeThis++;
+                }
             }
             
-            // 元の位置（プレースホルダーがない状態）
-            let originalPosition = index;
-            const draggedItemDOMIndex = Array.from(grid.children).findIndex(child => 
-                child.classList.contains('shortcut-item') && 
-                parseInt(child.dataset.index) === this.draggedIndex
-            );
-            if (draggedItemDOMIndex !== -1 && draggedItemDOMIndex <= itemDOMIndex) {
-                originalPosition++;
+            // プレースホルダーがこのアイテムより前にある場合は、その分を加算
+            if (placeholderIndex !== -1 && placeholderIndex < itemDOMIndex) {
+                itemsBeforeThis++;
             }
+            
+            targetPosition = itemsBeforeThis;
             
             // 移動量を計算
             const oldRow = Math.floor(originalPosition / columns);
             const oldCol = originalPosition % columns;
-            const newRow = Math.floor(logicalPosition / columns);
-            const newCol = logicalPosition % columns;
+            const newRow = Math.floor(targetPosition / columns);
+            const newCol = targetPosition % columns;
             
             const deltaX = (newCol - oldCol) * (itemWidth + gap);
             const deltaY = (newRow - oldRow) * (itemWidth + gap);
             
             if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${logicalPosition}, delta(${deltaX},${deltaY})`);
+                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, delta(${deltaX},${deltaY})`);
             }
             
             // アニメーション適用
@@ -613,6 +651,7 @@ class MouseDragManager {
         this.dragClone = null;
         this.isDragging = false;
         this.currentDropMode = null;
+        this.originalItemPositions.clear();
     }
     
     cancelDrag() {
