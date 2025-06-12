@@ -434,7 +434,8 @@ class ShortcutManager {
         }
 
         // ドラッグ&ドロップの設定
-        this.setupDragAndDrop();
+        // HTML5 Drag APIは無効化し、MouseDragManagerのみを使用
+        // this.setupDragAndDrop();
         
         // マウスドラッグも同時に使用
         if (window.MouseDragManager) {
@@ -452,7 +453,7 @@ class ShortcutManager {
         if (shortcut.isFolder) {
             item.className += ' shortcut-folder';
         }
-        item.draggable = true;
+        item.draggable = false; // MouseDragManagerを使用するためHTML5ドラッグを無効化
         item.dataset.index = index;
         
         // デバッグ用：draggable属性が設定されているか確認
@@ -607,7 +608,7 @@ class ShortcutManager {
     createFolderElement(folder) {
         const item = document.createElement('div');
         item.className = 'folder-item';
-        item.draggable = true;
+        item.draggable = false; // MouseDragManagerを使用するためHTML5ドラッグを無効化
         item.dataset.folderId = folder.id;
 
         const icon = document.createElement('div');
@@ -796,8 +797,8 @@ class ShortcutManager {
         }
     }
 
-    // ドラッグ&ドロップの設定
-    setupDragAndDrop() {
+    // ドラッグ&ドロップの設定（無効化：MouseDragManagerを使用）
+    /* setupDragAndDrop() {
         console.log('=== setupDragAndDrop START ===');
         const grid = document.getElementById('shortcutsGrid');
         if (!grid) {
@@ -1024,10 +1025,10 @@ class ShortcutManager {
         });
         
         console.log('=== setupDragAndDrop END ===');
-    }
+    } */
     
-    // アイテムレベルのイベントリスナーを設定
-    attachItemEventListeners() {
+    // アイテムレベルのイベントリスナーを設定（無効化：MouseDragManagerを使用）
+    /* attachItemEventListeners() {
         const items = document.querySelectorAll('.shortcut-item');
         items.forEach((item) => {
             // ドラッグオーバー
@@ -1058,7 +1059,7 @@ class ShortcutManager {
                 }
             });
         });
-    }
+    } */
 
     // インポート機能
     async importFromBookmarks() {
@@ -1204,8 +1205,8 @@ window.debugDragEvents = function() {
     console.log('Debug handlers added to:', elements.length, 'elements');
 };
 
-// HTML5ドラッグを強制的に有効化
-window.forceHTML5Drag = function() {
+// HTML5ドラッグを強制的に有効化（無効化：MouseDragManagerを使用）
+/* window.forceHTML5Drag = function() {
     console.log('=== Forcing HTML5 Drag ===');
     const manager = window.shortcutManager;
     
@@ -1217,15 +1218,15 @@ window.forceHTML5Drag = function() {
     // HTML5ドラッグを再有効化
     const items = document.querySelectorAll('.shortcut-item');
     items.forEach(item => {
-        item.draggable = true;
+        item.draggable = false; // MouseDragManagerを使用するためHTML5ドラッグを無効化
     });
     
     manager.setupDragAndDrop();
     console.log('HTML5 drag re-enabled. Try dragging now.');
-};
+}; */
 
-// 最小限のドラッグテスト
-window.minimalDragTest = function() {
+// 最小限のドラッグテスト（無効化：MouseDragManagerを使用）
+/* window.minimalDragTest = function() {
     console.log('=== Minimal Drag Test ===');
     
     const items = document.querySelectorAll('.shortcut-item');
@@ -1264,7 +1265,7 @@ window.minimalDragTest = function() {
     });
     
     console.log('Minimal drag test ready. Try dragging now.');
-};
+}; */
 
 // シンプルなドラッグテスト
 window.simpleDragTest = function() {
