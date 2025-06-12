@@ -1,0 +1,809 @@
+/* リセットとベース設定 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #fff;
+    color: #202124;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* 検索バー */
+.search-container {
+    margin-top: 120px;
+    width: 100%;
+    max-width: 600px;
+    padding: 0 20px;
+}
+
+.search-form {
+    width: 100%;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    border: 1px solid #dfe1e5;
+    border-radius: 24px;
+    height: 46px;
+    padding: 0 20px;
+    transition: box-shadow 0.2s;
+}
+
+.search-box:hover {
+    box-shadow: 0 1px 6px rgba(32,33,36,.28);
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    color: #202124;
+    background-color: transparent;
+}
+
+.search-button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+.search-button svg {
+    width: 20px;
+    height: 20px;
+    fill: #5f6368;
+}
+
+/* ショートカットコンテナ */
+.shortcuts-container {
+    margin-top: 40px;
+    width: 100%;
+    max-width: 800px;
+    padding: 0 20px 40px;
+}
+
+.shortcuts-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 20px;
+}
+
+.shortcuts-grid {
+    display: contents;
+}
+
+/* ショートカットアイテム */
+.shortcut-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    position: relative;
+    width: 112px;
+    height: 112px;
+    user-select: none; /* テキスト選択を無効化 */
+}
+
+.shortcut-item:hover {
+    background-color: #f1f3f4;
+}
+
+/* ケバブメニュー */
+.kebab-menu {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, opacity 0.2s;
+    opacity: 0.7;
+}
+
+.shortcut-item:hover .kebab-menu {
+    display: flex;
+}
+
+.kebab-menu:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    opacity: 1;
+}
+
+.kebab-menu svg {
+    width: 14px;
+    height: 14px;
+    fill: #5f6368;
+}
+
+.shortcut-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #f1f3f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    overflow: hidden;
+    font-size: 20px;
+    font-weight: 500;
+    color: #5f6368;
+    flex-shrink: 0;
+}
+
+.shortcut-icon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.shortcut-name {
+    font-size: 13px;
+    color: #202124;
+    text-align: center;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s, border 0.2s;
+    flex-shrink: 0;
+}
+
+.shortcut-name.editing {
+    background-color: #fff;
+    border: 1px solid #1a73e8;
+    outline: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    cursor: text;
+}
+
+/* 追加ボタン */
+.add-shortcut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 2px dashed #dadce0;
+    width: 112px;
+    height: 112px;
+}
+
+.add-shortcut:hover {
+    background-color: #f8f9fa;
+    border-color: #5f6368;
+}
+
+.add-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #f1f3f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #5f6368;
+    margin-bottom: 8px;
+}
+
+/* モーダル */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal.modal-drag-out {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 3px dashed #1a73e8;
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    font-size: 20px;
+    color: #202124;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #5f6368;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+.form-group input:focus {
+    border-color: #1a73e8;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.btn-cancel, .btn-save {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s;
+}
+
+.btn-cancel {
+    background-color: #fff;
+    color: #5f6368;
+    border: 1px solid #dadce0;
+}
+
+.btn-cancel:hover {
+    background-color: #f8f9fa;
+}
+
+.btn-save {
+    background-color: #1a73e8;
+    color: #fff;
+}
+
+.btn-save:hover {
+    background-color: #1557b0;
+}
+
+/* コンテキストメニュー */
+.context-menu {
+    display: none;
+    position: absolute;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    overflow: hidden;
+}
+
+.context-menu.show {
+    display: block;
+}
+
+.menu-item {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: #202124;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+    background-color: #f1f3f4;
+}
+
+/* ドラッグ中のスタイル */
+.dragging {
+    opacity: 0.5;
+}
+
+.drag-over {
+    background-color: #e8f0fe;
+    transition: background-color 0.2s ease;
+}
+
+/* マウスドラッグ用のプレースホルダー */
+.shortcut-placeholder {
+    background-color: #f1f3f4;
+    border: 2px dashed #dadce0;
+    border-radius: 8px;
+}
+
+.drag-reorder {
+    border: 2px solid #1a73e8;
+    background-color: #f1f3f4;
+}
+
+/* 挿入位置の表示 */
+.shortcut-item.insert-before::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #1a73e8;
+    border-radius: 2px;
+}
+
+.shortcut-item.insert-after::after {
+    content: '';
+    position: absolute;
+    right: -12px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #1a73e8;
+    border-radius: 2px;
+}
+
+/* ショートカットコントロール */
+.shortcuts-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.shortcut-search {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+.shortcut-search:focus {
+    border-color: #1a73e8;
+}
+
+
+.folder-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #5f6368;
+    outline: none;
+    cursor: pointer;
+}
+
+.folder-select:focus {
+    border-color: #1a73e8;
+}
+
+/* フォルダー関連のスタイル（iOS/Androidスタイル） */
+.shortcut-folder {
+    position: relative;
+}
+
+.shortcut-folder .shortcut-icon {
+    background-color: rgba(95, 99, 104, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+}
+
+.folder-preview {
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.folder-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+    width: 32px;
+    height: 32px;
+}
+
+.mini-icon {
+    width: 15px;
+    height: 15px;
+    background-color: #fff;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #5f6368;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.mini-icon img {
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+}
+
+.folder-more-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background-color: #1a73e8;
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* ドラッグ時のホバーエフェクト */
+.shortcut-item.drag-over {
+    transform: scale(1.1);
+    transition: transform 0.2s;
+}
+
+.shortcut-item.drag-over .shortcut-icon {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ダークモードトグル */
+.dark-mode-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #f1f3f4;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+    z-index: 100;
+}
+
+.dark-mode-toggle:hover {
+    background-color: #e8eaed;
+}
+
+.dark-mode-toggle svg {
+    width: 24px;
+    height: 24px;
+    fill: #5f6368;
+}
+
+.sun-icon {
+    display: block;
+}
+
+.moon-icon {
+    display: none;
+}
+
+/* Google ロゴの切り替え */
+/* ダークモードスタイル */
+body.dark-mode {
+    background-color: #202124;
+    color: #e8eaed;
+}
+
+body.dark-mode .dark-mode-toggle {
+    background-color: #3c4043;
+}
+
+body.dark-mode .dark-mode-toggle:hover {
+    background-color: #5f6368;
+}
+
+body.dark-mode .dark-mode-toggle svg {
+    fill: #e8eaed;
+}
+
+body.dark-mode .sun-icon {
+    display: none;
+}
+
+body.dark-mode .moon-icon {
+    display: block;
+}
+
+body.dark-mode .search-box {
+    background-color: #303134;
+    border-color: #5f6368;
+}
+
+body.dark-mode .search-box:hover {
+    box-shadow: 0 1px 6px rgba(255,255,255,.1);
+}
+
+body.dark-mode .search-input {
+    color: #e8eaed;
+    background-color: #303134;
+}
+
+body.dark-mode .search-button svg {
+    fill: #e8eaed;
+}
+
+body.dark-mode .shortcut-item:hover {
+    background-color: #3c4043;
+}
+
+body.dark-mode .kebab-menu:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .kebab-menu svg {
+    fill: #e8eaed;
+}
+
+body.dark-mode .shortcut-icon {
+    background-color: #3c4043;
+}
+
+body.dark-mode .shortcut-name {
+    color: #e8eaed;
+}
+
+body.dark-mode .shortcut-name.editing {
+    background-color: #303134;
+    border-color: #8ab4f8;
+    color: #e8eaed;
+}
+
+body.dark-mode .add-shortcut {
+    border-color: #5f6368;
+}
+
+body.dark-mode .add-shortcut:hover {
+    background-color: #303134;
+    border-color: #8ab4f8;
+}
+
+body.dark-mode .add-icon {
+    background-color: #3c4043;
+    color: #e8eaed;
+}
+
+body.dark-mode .modal-content {
+    background-color: #303134;
+}
+
+body.dark-mode .modal-content h2 {
+    color: #e8eaed;
+}
+
+body.dark-mode .form-group label {
+    color: #9aa0a6;
+}
+
+body.dark-mode .form-group input {
+    background-color: #202124;
+    border-color: #5f6368;
+    color: #e8eaed;
+}
+
+body.dark-mode .form-group input:focus {
+    border-color: #8ab4f8;
+}
+
+body.dark-mode .btn-cancel {
+    background-color: #303134;
+    color: #e8eaed;
+    border-color: #5f6368;
+}
+
+body.dark-mode .btn-cancel:hover {
+    background-color: #3c4043;
+}
+
+body.dark-mode .btn-save {
+    background-color: #8ab4f8;
+    color: #202124;
+}
+
+body.dark-mode .btn-save:hover {
+    background-color: #aecbfa;
+}
+
+body.dark-mode .context-menu {
+    background-color: #303134;
+}
+
+body.dark-mode .menu-item {
+    color: #e8eaed;
+}
+
+body.dark-mode .menu-item:hover {
+    background-color: #3c4043;
+}
+
+body.dark-mode .shortcut-search {
+    background-color: #303134;
+    border-color: #5f6368;
+    color: #e8eaed;
+}
+
+body.dark-mode .shortcut-search:focus {
+    border-color: #8ab4f8;
+}
+
+
+body.dark-mode .folder-select {
+    background-color: #303134;
+    border-color: #5f6368;
+    color: #e8eaed;
+}
+
+body.dark-mode .folder-select:focus {
+    border-color: #8ab4f8;
+}
+
+/* フォルダーモーダル */
+.folder-modal-content {
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.folder-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.folder-modal-header h2 {
+    margin: 0;
+}
+
+.folder-title-editable {
+    border: 1px solid transparent;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: border-color 0.2s, background-color 0.2s;
+    cursor: text;
+    outline: none;
+}
+
+.folder-title-editable:hover {
+    background-color: #f1f3f4;
+    border-color: #dadce0;
+}
+
+.folder-title-editable:focus {
+    background-color: #fff;
+    border-color: #1a73e8;
+    cursor: text;
+}
+
+.folder-close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #5f6368;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.folder-close-btn:hover {
+    background-color: #f1f3f4;
+}
+
+.folder-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 20px;
+    min-height: 200px;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.folder-modal-grid.folder-drag-over {
+    background-color: rgba(26, 115, 232, 0.1);
+    border: 2px dashed #1a73e8;
+    border-radius: 8px;
+}
+
+/* モーダル外へのドラッグ時の表示 */
+.shortcuts-wrapper.drag-target {
+    background-color: rgba(26, 115, 232, 0.1);
+    transition: background-color 0.2s;
+    border: 2px dashed #1a73e8;
+    border-radius: 8px;
+    padding: 10px;
+    margin: -10px;
+}
+
+/* ダークモード - フォルダースタイル */
+body.dark-mode .shortcut-folder .shortcut-icon {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .mini-icon {
+    background-color: #303134;
+    color: #e8eaed;
+}
+
+body.dark-mode .folder-more-count {
+    background-color: #8ab4f8;
+    color: #202124;
+}
+
+body.dark-mode .folder-modal-content {
+    background-color: #303134;
+}
+
+body.dark-mode .folder-close-btn {
+    color: #e8eaed;
+}
+
+body.dark-mode .folder-close-btn:hover {
+    background-color: #3c4043;
+}
+
+body.dark-mode .folder-title-editable:hover {
+    background-color: #3c4043;
+    border-color: #5f6368;
+}
+
+body.dark-mode .folder-title-editable:focus {
+    background-color: #202124;
+    border-color: #8ab4f8;
+}

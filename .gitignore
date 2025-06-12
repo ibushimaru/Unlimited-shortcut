@@ -1,0 +1,38 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Sync scripts (local development only)
+auto_sync*.sh
+simple_sync.sh
+start_sync.sh
+sync_monitor.sh
+
+# Test files
+test-*.html
+test-*.js
+
+# Screenshots and media
+screenshot/*.mp4
+
+# Local development notes
+claude.md
+
+# Chrome extension development
+*.pem
+*.crx
+*.zip

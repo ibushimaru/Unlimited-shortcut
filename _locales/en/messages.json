@@ -1,0 +1,77 @@
+{
+  "extensionName": {
+    "message": "Unlimited Shortcuts"
+  },
+  "extensionDescription": {
+    "message": "Add unlimited shortcuts to your new tab page with automatic favicon detection"
+  },
+  "searchPlaceholder": {
+    "message": "Search Google or type URL"
+  },
+  "addShortcut": {
+    "message": "Add shortcut"
+  },
+  "editShortcut": {
+    "message": "Edit shortcut"
+  },
+  "deleteShortcut": {
+    "message": "Delete"
+  },
+  "edit": {
+    "message": "Edit"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "url": {
+    "message": "URL"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "confirmDelete": {
+    "message": "Are you sure you want to delete this shortcut?"
+  },
+  "invalidUrl": {
+    "message": "Please enter a valid URL."
+  },
+  "importConfirm": {
+    "message": "Import shortcuts?\nCurrent shortcuts will be overwritten."
+  },
+  "newTab": {
+    "message": "New Tab"
+  },
+  "folder": {
+    "message": "Folder"
+  },
+  "addFolder": {
+    "message": "Add Folder"
+  },
+  "rootLevel": {
+    "message": "Root Level"
+  },
+  "enterFolderName": {
+    "message": "Enter folder name:"
+  },
+  "emptyFolder": {
+    "message": "Drop shortcuts here"
+  },
+  "searchShortcuts": {
+    "message": "Search shortcuts..."
+  },
+  "toggleDarkMode": {
+    "message": "Toggle dark mode"
+  },
+  "newFolder": {
+    "message": "New Folder"
+  },
+  "renameFolder": {
+    "message": "Rename Folder"
+  }
+}

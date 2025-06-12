@@ -1,0 +1,77 @@
+{
+  "extensionName": {
+    "message": "無制限ショートカット"
+  },
+  "extensionDescription": {
+    "message": "新しいタブページに無制限のショートカットを追加し、自動的にファビコンを検出します"
+  },
+  "searchPlaceholder": {
+    "message": "Google で検索または URL を入力"
+  },
+  "addShortcut": {
+    "message": "ショートカットを追加"
+  },
+  "editShortcut": {
+    "message": "ショートカットを編集"
+  },
+  "deleteShortcut": {
+    "message": "削除"
+  },
+  "edit": {
+    "message": "編集"
+  },
+  "delete": {
+    "message": "削除"
+  },
+  "name": {
+    "message": "名前"
+  },
+  "url": {
+    "message": "URL"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "cancel": {
+    "message": "キャンセル"
+  },
+  "confirmDelete": {
+    "message": "このショートカットを削除しますか？"
+  },
+  "invalidUrl": {
+    "message": "有効なURLを入力してください。"
+  },
+  "importConfirm": {
+    "message": "ショートカットをインポートしますか？\n現在のショートカットは上書きされます。"
+  },
+  "newTab": {
+    "message": "新しいタブ"
+  },
+  "folder": {
+    "message": "フォルダー"
+  },
+  "addFolder": {
+    "message": "フォルダーを追加"
+  },
+  "rootLevel": {
+    "message": "ルートレベル"
+  },
+  "enterFolderName": {
+    "message": "フォルダー名を入力してください："
+  },
+  "emptyFolder": {
+    "message": "ここにショートカットをドロップ"
+  },
+  "searchShortcuts": {
+    "message": "ショートカットを検索..."
+  },
+  "toggleDarkMode": {
+    "message": "ダークモードの切り替え"
+  },
+  "newFolder": {
+    "message": "新しいフォルダー"
+  },
+  "renameFolder": {
+    "message": "フォルダー名を変更"
+  }
+}
