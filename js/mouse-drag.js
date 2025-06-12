@@ -493,27 +493,11 @@ class MouseDragManager {
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
         console.log(`[moveItems] Grid layout: columns=${columns}, gap=${gap}`);
-        console.log(`[moveItems] Dragged item index: ${this.draggedIndex}`);
-        
-        // プレースホルダーの位置を取得
-        const placeholderDOMIndex = Array.from(grid.children).indexOf(this.placeholder);
-        console.log(`[moveItems] Placeholder DOM index: ${placeholderDOMIndex}`);
-        
-        // プレースホルダーより前にあるアイテム数をカウント（ドラッグ中と追加ボタンを除く）
-        let placeholderLogicalIndex = 0;
-        for (let i = 0; i < placeholderDOMIndex; i++) {
-            const child = grid.children[i];
-            if (child.classList.contains('shortcut-item') && 
-                !child.dataset.isAddButton &&
-                parseInt(child.dataset.index) !== this.draggedIndex) {
-                placeholderLogicalIndex++;
-            }
-        }
-        console.log(`[moveItems] Placeholder logical index: ${placeholderLogicalIndex}`);
+        console.log(`[moveItems] Pending insert index: ${this.pendingInsertIndex}`);
         
         // ドラッグ中アイテムの元の位置
         const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
-        console.log(`[moveItems] Dragged item original position: ${draggedOriginalPos}`);
+        console.log(`[moveItems] Dragged item (${this.draggedIndex}) original position: ${draggedOriginalPos}`);
         
         // 各アイテムを処理
         const items = Array.from(grid.children).filter(child => 
@@ -539,23 +523,23 @@ class MouseDragManager {
                 return;
             }
             
-            // 目標位置を計算
+            // シンプルなロジック：
+            // 1. ドラッグアイテムが抜けた後の位置を計算
+            // 2. プレースホルダーが挿入された後の位置を計算
+            
             let targetPosition = originalPosition;
             
-            // ドラッグアイテムの元位置とプレースホルダー位置に基づいて調整
+            // ステップ1: ドラッグアイテムが抜けた影響
             if (draggedOriginalPos < originalPosition) {
-                // ドラッグアイテムが元々前にあった場合
-                targetPosition--; // ドラッグアイテムが抜けた分、前に詰める
-                
-                if (placeholderLogicalIndex <= targetPosition) {
-                    // プレースホルダーがターゲット位置以前にある場合
-                    targetPosition++; // プレースホルダーの分だけ後ろにずらす
-                }
-            } else {
-                // ドラッグアイテムが元々後ろにあった場合
-                if (placeholderLogicalIndex <= originalPosition) {
-                    // プレースホルダーが元位置以前にある場合
-                    targetPosition++; // プレースホルダーの分だけ後ろにずらす
+                // ドラッグアイテムが自分より前にあった場合、前に詰める
+                targetPosition--;
+            }
+            
+            // ステップ2: プレースホルダーが挿入される影響
+            if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined) {
+                if (this.pendingInsertIndex <= targetPosition) {
+                    // プレースホルダーが自分の位置以前に挿入される場合、後ろにずれる
+                    targetPosition++;
                 }
             }
             
@@ -572,12 +556,13 @@ class MouseDragManager {
                 console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, row(${oldRow}->${newRow}), col(${oldCol}->${newCol}), delta(${deltaX},${deltaY})`);
                 
                 // 異常な移動をデバッグ
-                if (Math.abs(deltaX) > 200 || Math.abs(deltaY) > 200) {
+                if (Math.abs(deltaX) > 300 || Math.abs(deltaY) > 300) {
                     console.warn(`[moveItems] WARNING: Large movement detected for item ${itemIndex}!`);
                     console.warn(`  Original: row=${oldRow}, col=${oldCol}`);
                     console.warn(`  Target: row=${newRow}, col=${newCol}`);
-                    console.warn(`  Placeholder logical index: ${placeholderLogicalIndex}`);
+                    console.warn(`  Pending insert index: ${this.pendingInsertIndex}`);
                     console.warn(`  Dragged original pos: ${draggedOriginalPos}`);
+                    console.warn(`  Item original pos: ${originalPosition}`);
                 }
             }
             
