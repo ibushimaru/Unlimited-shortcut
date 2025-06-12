@@ -532,29 +532,45 @@ class MouseDragManager {
             const originalPosition = this.originalItemPositions.get(itemIndex) || currentIndex;
             console.log(`[moveItems] Item ${itemIndex}: original saved position = ${originalPosition}`);
             
-            // 目標位置を計算（プレースホルダーとドラッグ中アイテムの影響を考慮）
-            let targetPosition = currentIndex;
+            // 目標位置を計算
+            let targetPosition = originalPosition;
             
-            // DOM上でこのアイテムより前にあるアイテムの数を数える（プレースホルダーとドラッグ中アイテムを除く）
-            const itemDOMIndex = Array.from(grid.children).indexOf(item);
-            let itemsBeforeThis = 0;
-            
-            for (let i = 0; i < itemDOMIndex; i++) {
-                const child = grid.children[i];
-                if (child.classList.contains('shortcut-item') && 
-                    !child.dataset.isAddButton &&
-                    child !== this.placeholder &&
-                    parseInt(child.dataset.index) !== this.draggedIndex) {
-                    itemsBeforeThis++;
+            // プレースホルダーの位置に基づいて調整
+            if (placeholderIndex !== -1) {
+                // プレースホルダーの論理位置を計算（ドラッグ中アイテムを除いたアイテム数）
+                let placeholderLogicalPos = 0;
+                for (let i = 0; i < placeholderIndex; i++) {
+                    const child = grid.children[i];
+                    if (child.classList.contains('shortcut-item') && 
+                        !child.dataset.isAddButton &&
+                        parseInt(child.dataset.index) !== this.draggedIndex) {
+                        placeholderLogicalPos++;
+                    }
+                }
+                
+                // ドラッグ中アイテムの元の位置
+                const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
+                
+                if (originalPosition > draggedOriginalPos) {
+                    // ドラッグ中アイテムより後ろにあったアイテム
+                    if (placeholderLogicalPos <= originalPosition - 1) {
+                        // プレースホルダーが元の位置より前にある
+                        targetPosition = originalPosition - 1;
+                    } else {
+                        // プレースホルダーが元の位置より後ろにある
+                        targetPosition = originalPosition;
+                    }
+                } else {
+                    // ドラッグ中アイテムより前にあったアイテム
+                    if (placeholderLogicalPos <= originalPosition) {
+                        // プレースホルダーが元の位置以前にある
+                        targetPosition = originalPosition;
+                    } else {
+                        // プレースホルダーが元の位置より後ろにある
+                        targetPosition = originalPosition + 1;
+                    }
                 }
             }
-            
-            // プレースホルダーがこのアイテムより前にある場合は、その分を加算
-            if (placeholderIndex !== -1 && placeholderIndex < itemDOMIndex) {
-                itemsBeforeThis++;
-            }
-            
-            targetPosition = itemsBeforeThis;
             
             // 移動量を計算
             const oldRow = Math.floor(originalPosition / columns);
@@ -566,7 +582,15 @@ class MouseDragManager {
             const deltaY = (newRow - oldRow) * (itemWidth + gap);
             
             if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, delta(${deltaX},${deltaY})`);
+                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, row(${oldRow}->${newRow}), col(${oldCol}->${newCol}), delta(${deltaX},${deltaY})`);
+                
+                // 異常な移動をデバッグ
+                if (Math.abs(deltaX) > 200 || Math.abs(deltaY) > 200) {
+                    console.warn(`[moveItems] WARNING: Large movement detected for item ${itemIndex}!`);
+                    console.warn(`  Original: row=${oldRow}, col=${oldCol}`);
+                    console.warn(`  Target: row=${newRow}, col=${newCol}`);
+                    console.warn(`  Columns: ${columns}`);
+                }
             }
             
             // アニメーション適用
