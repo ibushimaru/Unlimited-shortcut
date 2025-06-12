@@ -523,23 +523,27 @@ class MouseDragManager {
                 return;
             }
             
-            // シンプルなロジック：
-            // 1. ドラッグアイテムが抜けた後の位置を計算
-            // 2. プレースホルダーが挿入された後の位置を計算
-            
+            // 位置計算ロジック
             let targetPosition = originalPosition;
             
-            // ステップ1: ドラッグアイテムが抜けた影響
-            if (draggedOriginalPos < originalPosition) {
-                // ドラッグアイテムが自分より前にあった場合、前に詰める
-                targetPosition--;
-            }
-            
-            // ステップ2: プレースホルダーが挿入される影響
+            // pendingInsertIndexはドラッグアイテムが移動する先の位置
+            // 他のアイテムはそれに対応して動く
             if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined) {
-                if (this.pendingInsertIndex <= targetPosition) {
-                    // プレースホルダーが自分の位置以前に挿入される場合、後ろにずれる
-                    targetPosition++;
+                if (draggedOriginalPos < originalPosition && this.pendingInsertIndex > originalPosition) {
+                    // ドラッグアイテムが前から後ろへ移動し、自分を越えていく場合
+                    targetPosition = originalPosition - 1;
+                } else if (draggedOriginalPos > originalPosition && this.pendingInsertIndex <= originalPosition) {
+                    // ドラッグアイテムが後ろから前へ移動し、自分を越えていく場合
+                    targetPosition = originalPosition + 1;
+                } else if (draggedOriginalPos < originalPosition && this.pendingInsertIndex <= draggedOriginalPos) {
+                    // ドラッグアイテムが前に移動するが、自分は関係ない場合
+                    targetPosition = originalPosition - 1;
+                } else if (draggedOriginalPos > originalPosition && this.pendingInsertIndex > draggedOriginalPos) {
+                    // ドラッグアイテムが後ろに移動するが、自分は関係ない場合
+                    targetPosition = originalPosition;
+                } else {
+                    // その他の場合は位置を保持
+                    targetPosition = originalPosition;
                 }
             }
             
@@ -549,8 +553,8 @@ class MouseDragManager {
             const newRow = Math.floor(targetPosition / columns);
             const newCol = targetPosition % columns;
             
-            const deltaX = (newCol - oldCol) * (itemWidth + gap);
-            const deltaY = (newRow - oldRow) * (itemWidth + gap);
+            let deltaX = (newCol - oldCol) * (itemWidth + gap);
+            let deltaY = (newRow - oldRow) * (itemWidth + gap);
             
             if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
                 console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, row(${oldRow}->${newRow}), col(${oldCol}->${newCol}), delta(${deltaX},${deltaY})`);
@@ -563,6 +567,22 @@ class MouseDragManager {
                     console.warn(`  Pending insert index: ${this.pendingInsertIndex}`);
                     console.warn(`  Dragged original pos: ${draggedOriginalPos}`);
                     console.warn(`  Item original pos: ${originalPosition}`);
+                    
+                    // エラー修正：異常な移動を防ぐ
+                    const maxMove = 2; // 最大で2ポジションまでの移動に制限
+                    if (Math.abs(targetPosition - originalPosition) > maxMove) {
+                        console.error(`[moveItems] Movement too large, limiting to ${maxMove} positions`);
+                        targetPosition = originalPosition + (targetPosition > originalPosition ? maxMove : -maxMove);
+                        
+                        // 再計算
+                        const limitedNewRow = Math.floor(targetPosition / columns);
+                        const limitedNewCol = targetPosition % columns;
+                        const limitedDeltaX = (limitedNewCol - oldCol) * (itemWidth + gap);
+                        const limitedDeltaY = (limitedNewRow - oldRow) * (itemWidth + gap);
+                        
+                        deltaX = limitedDeltaX;
+                        deltaY = limitedDeltaY;
+                    }
                 }
             }
             
