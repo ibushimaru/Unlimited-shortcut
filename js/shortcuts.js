@@ -400,7 +400,7 @@ class ShortcutManager {
         // ドラッグ&ドロップの設定
         this.setupDragAndDrop();
         
-        // マウスドラッグを試す
+        // マウスドラッグも同時に使用
         if (window.MouseDragManager) {
             this.mouseDragManager = new MouseDragManager(this);
             this.mouseDragManager.init();
@@ -538,6 +538,14 @@ class ShortcutManager {
 
         // クリックイベント
         item.addEventListener('click', (e) => {
+            // ドラッグマネージャーがドラッグ中またはドラッグ直後の場合はクリックを無視
+            if (this.mouseDragManager && (this.mouseDragManager.isDragging || this.mouseDragManager.hasMoved)) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Click prevented due to drag state');
+                return;
+            }
+            
             if (!e.defaultPrevented) {
                 if (shortcut.isFolder) {
                     // フォルダーをクリックしたら開く
@@ -624,9 +632,11 @@ class ShortcutManager {
             e.preventDefault();
             item.classList.remove('folder-drag-over');
             
-            const draggedIndex = parseInt(e.dataTransfer.getData('shortcutIndex'));
-            if (!isNaN(draggedIndex)) {
+            const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            if (!isNaN(draggedIndex) && draggedIndex >= 0 && draggedIndex < this.shortcuts.length) {
                 this.moveShortcutToFolder(draggedIndex, folder.id);
+            } else {
+                console.error('Invalid drag index from folder drop:', draggedIndex);
             }
         });
 
@@ -636,11 +646,13 @@ class ShortcutManager {
     // ショートカットをフォルダーに移動
     async moveShortcutToFolder(shortcutIndex, folderId) {
         console.log('moveShortcutToFolder called:', { shortcutIndex, folderId });
+        console.log('Call stack:', new Error().stack);
         
         // より厳密な範囲チェック
         if (typeof shortcutIndex !== 'number' || isNaN(shortcutIndex) || 
             shortcutIndex < 0 || shortcutIndex >= this.shortcuts.length) {
             console.error('Invalid shortcut index:', shortcutIndex, 'Total shortcuts:', this.shortcuts.length);
+            console.error('Shortcuts array:', this.shortcuts);
             return;
         }
         
@@ -808,6 +820,7 @@ class ShortcutManager {
             // ドラッグデータを設定
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', this.draggedIndex.toString());
+            e.dataTransfer.setData('shortcutIndex', this.draggedIndex.toString());
         });
         
         grid.addEventListener('dragend', (e) => {

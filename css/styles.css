@@ -352,6 +352,28 @@ body {
     transition: background-color 0.2s ease;
 }
 
+/* フォルダーへのドラッグオーバー */
+.folder-drag-over {
+    background-color: rgba(26, 115, 232, 0.1);
+    box-shadow: 0 0 0 2px #1a73e8;
+    transition: all 0.2s ease;
+}
+
+.shortcut-folder.drag-over {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px #1a73e8;
+}
+
+/* フォルダーホバー時のエフェクト */
+.shortcut-item.folder-hover {
+    background-color: rgba(26, 115, 232, 0.15);
+    transform: scale(1.03);
+}
+
+.shortcut-item.folder-hover .shortcut-icon {
+    transform: scale(1.1);
+}
+
 /* マウスドラッグ用のプレースホルダー */
 .shortcut-placeholder {
     background-color: #f1f3f4;
