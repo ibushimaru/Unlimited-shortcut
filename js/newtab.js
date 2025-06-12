@@ -298,6 +298,14 @@ window.openFolderModal = function(folderId, folderName) {
     
     folderItems.forEach((shortcut, idx) => {
         const realIndex = window.shortcutManager.shortcuts.indexOf(shortcut);
+        console.log(`Folder item ${idx}: shortcut="${shortcut.name}", realIndex=${realIndex}`);
+        
+        // インデックスが無効な場合はスキップ
+        if (realIndex === -1) {
+            console.error('Shortcut not found in main array:', shortcut);
+            return;
+        }
+        
         const item = window.shortcutManager.createShortcutElement(shortcut, realIndex);
         grid.appendChild(item);
     });
@@ -378,18 +386,24 @@ function setupModalDragOut(folderId) {
             e.stopPropagation();
             
             console.log('Processing drop on modal background with index:', currentDraggedIndex);
+            console.log('Total shortcuts:', window.shortcutManager.shortcuts.length);
             
-            try {
-                // フォルダーから外に移動
-                window.shortcutManager.moveShortcutToFolder(currentDraggedIndex, null);
-                
-                // モーダルを更新
-                setTimeout(() => {
-                    console.log('Updating modal after move');
-                    window.openFolderModal(folderId, elements.folderModalTitle.textContent);
-                }, 100);
-            } catch (error) {
-                console.error('Error moving shortcut:', error);
+            // インデックスの範囲チェック
+            if (currentDraggedIndex >= 0 && currentDraggedIndex < window.shortcutManager.shortcuts.length) {
+                try {
+                    // フォルダーから外に移動
+                    window.shortcutManager.moveShortcutToFolder(currentDraggedIndex, null);
+                    
+                    // モーダルを更新
+                    setTimeout(() => {
+                        console.log('Updating modal after move');
+                        window.openFolderModal(folderId, elements.folderModalTitle.textContent);
+                    }, 100);
+                } catch (error) {
+                    console.error('Error moving shortcut:', error);
+                }
+            } else {
+                console.error('Invalid dragged index in modal:', currentDraggedIndex, 'Total:', window.shortcutManager.shortcuts.length);
             }
             
             modal.classList.remove('modal-drag-out');

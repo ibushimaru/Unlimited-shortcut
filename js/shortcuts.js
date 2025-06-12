@@ -173,6 +173,10 @@ class ShortcutManager {
             const item = this.shortcuts.splice(fromIndex, 1)[0];
             this.shortcuts.splice(toIndex, 0, item);
             await this.save();
+            
+            // アニメーション付きで再描画
+            const grid = document.getElementById('shortcutsGrid');
+            grid.classList.add('animating');
             this.render();
         }
     }
@@ -343,6 +347,13 @@ class ShortcutManager {
     // ショートカットの描画
     render() {
         const grid = document.getElementById('shortcutsGrid');
+        const wasAnimating = grid.classList.contains('animating');
+        
+        // アニメーションフラグを追加
+        if (wasAnimating) {
+            grid.classList.add('animating');
+        }
+        
         grid.innerHTML = '';
         
         // ドラッグ状態をリセット
@@ -396,6 +407,13 @@ class ShortcutManager {
         // 旧フォルダーシステムのコードを削除（階層構造は使用しない）
 
         // 追加ボタンを再配置しないようにする（HTMLに固定配置）
+        
+        // アニメーション完了後にフラグを削除
+        if (wasAnimating) {
+            setTimeout(() => {
+                grid.classList.remove('animating');
+            }, 300);
+        }
 
         // ドラッグ&ドロップの設定
         this.setupDragAndDrop();
@@ -404,6 +422,8 @@ class ShortcutManager {
         if (window.MouseDragManager) {
             this.mouseDragManager = new MouseDragManager(this);
             this.mouseDragManager.init();
+            // グローバルに公開（範囲選択機能との連携のため）
+            window.mouseDragManager = this.mouseDragManager;
         }
     }
 
@@ -782,6 +802,12 @@ class ShortcutManager {
         
         // イベント委譲を使用してグリッドレベルでイベントを処理
         grid.addEventListener('dragstart', (e) => {
+            // 範囲選択モード中はドラッグを無効化
+            if (window.rangeSelectionManager && window.rangeSelectionManager.isInRangeSelectionMode()) {
+                e.preventDefault();
+                return;
+            }
+            
             console.log('Grid dragstart event, target:', e.target);
             const shortcutItem = e.target.closest('.shortcut-item');
             if (!shortcutItem || !shortcutItem.draggable) {
@@ -1117,6 +1143,12 @@ class ShortcutManager {
 
 // グローバル変数として初期化
 window.shortcutManager = new ShortcutManager();
+
+// 範囲選択マネージャーの初期化
+if (window.RangeSelectionManager) {
+    window.rangeSelectionManager = new RangeSelectionManager(window.shortcutManager);
+    window.rangeSelectionManager.init();
+}
 
 // ドラッグイベントのデバッグ関数
 window.debugDragEvents = function() {

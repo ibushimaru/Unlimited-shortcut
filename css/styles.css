@@ -75,13 +75,19 @@ body {
 }
 
 .shortcuts-wrapper {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-    gap: 20px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
 }
 
 .shortcuts-grid {
-    display: contents;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 112px);
+    gap: 16px;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    max-width: 800px;
 }
 
 /* ショートカットアイテム */
@@ -349,7 +355,8 @@ body {
 
 .drag-over {
     background-color: #e8f0fe;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    transform: scale(1.02);
 }
 
 /* フォルダーへのドラッグオーバー */
@@ -374,6 +381,115 @@ body {
     transform: scale(1.1);
 }
 
+/* 挿入スペーサー */
+.insert-spacer {
+    background-color: rgba(26, 115, 232, 0.08);
+    border: 2px dashed #1a73e8;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    animation: spacePulse 1.2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.insert-spacer::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    background-color: #1a73e8;
+    border-radius: 50%;
+    opacity: 0.2;
+    animation: ripple 1.5s ease-out infinite;
+}
+
+@keyframes spacePulse {
+    0% {
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+}
+
+@keyframes ripple {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0.4;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(3);
+        opacity: 0;
+    }
+}
+
+/* グリッド内のアイテム移動アニメーション */
+#shortcutsGrid {
+    position: relative;
+}
+
+.shortcut-item {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* アニメーション中のグリッド */
+#shortcutsGrid.animating .shortcut-item {
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ドラッグ中のアイテム */
+.shortcut-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+/* 範囲選択ボックス */
+.selection-box {
+    position: fixed;
+    border: 2px solid #1a73e8;
+    background-color: rgba(26, 115, 232, 0.1);
+    pointer-events: none;
+    z-index: 9998;
+    border-radius: 4px;
+}
+
+/* 範囲選択されたアイテム */
+.shortcut-item.range-selected {
+    background-color: #e8f0fe;
+    box-shadow: 0 0 0 2px #1a73e8;
+    transform: scale(1.02);
+}
+
+.shortcut-item.range-selected .shortcut-icon {
+    transform: scale(1.05);
+}
+
+/* 範囲選択モード中のグリッド */
+.shortcuts-container.selecting {
+    cursor: crosshair;
+}
+
 /* マウスドラッグ用のプレースホルダー */
 .shortcut-placeholder {
     background-color: #f1f3f4;
@@ -386,28 +502,8 @@ body {
     background-color: #f1f3f4;
 }
 
-/* 挿入位置の表示 */
-.shortcut-item.insert-before::before {
-    content: '';
-    position: absolute;
-    left: -12px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background-color: #1a73e8;
-    border-radius: 2px;
-}
-
-.shortcut-item.insert-after::after {
-    content: '';
-    position: absolute;
-    right: -12px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background-color: #1a73e8;
-    border-radius: 2px;
-}
+/* 挿入位置の表示 - 削除 */
+/* 青い線は不要のため削除 */
 
 /* ショートカットコントロール */
 .shortcuts-controls {
