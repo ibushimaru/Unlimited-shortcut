@@ -434,15 +434,19 @@ class ShortcutManager {
         }
 
         // ドラッグ&ドロップの設定
-        this.setupDragAndDrop();
+        // this.setupDragAndDrop(); // 旧実装は無効化
         
-        // マウスドラッグも同時に使用
-        if (window.MouseDragManager) {
-            this.mouseDragManager = new MouseDragManager(this);
-            this.mouseDragManager.init();
-            // グローバルに公開（範囲選択機能との連携のため）
-            window.mouseDragManager = this.mouseDragManager;
-        }
+        // SortableJSベースのドラッグ&ドロップを使用（少し遅延させて初期化）
+        setTimeout(() => {
+            if (window.SortableDragManager) {
+                this.dragManager = new SortableDragManager(this);
+                this.dragManager.init();
+                // グローバルに公開（範囲選択機能との連携のため）
+                window.dragManager = this.dragManager;
+            } else {
+                console.error('SortableDragManager not found!');
+            }
+        }, 100);
     }
 
     // ショートカット要素の作成
@@ -452,7 +456,8 @@ class ShortcutManager {
         if (shortcut.isFolder) {
             item.className += ' shortcut-folder';
         }
-        item.draggable = true;
+        // SortableJSが自動的にdraggableを管理するため、手動設定は不要
+        // item.draggable = true;
         item.dataset.index = index;
         
         // デバッグ用：draggable属性が設定されているか確認
