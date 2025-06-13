@@ -356,9 +356,12 @@ class MouseDragManager {
                                 draggedIndexType: typeof this.draggedIndex
                             });
                             
+                            // 同じ位置への移動の場合はスキップ
+                            if (dataIndex === this.draggedIndex) {
+                                console.log('Same position drop in reorder mode, skipping');
+                            }
                             // インデックスの範囲チェック
-                            if (dataIndex !== this.draggedIndex && 
-                                dataIndex >= 0 && 
+                            else if (dataIndex >= 0 && 
                                 dataIndex <= this.shortcutManager.shortcuts.length &&
                                 this.draggedIndex >= 0 &&
                                 this.draggedIndex < this.shortcutManager.shortcuts.length) {
