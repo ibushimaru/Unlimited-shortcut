@@ -398,23 +398,11 @@ function setupModalDragOut(folderId) {
             // インデックスの範囲チェック
             if (currentDraggedIndex >= 0 && currentDraggedIndex < window.shortcutManager.shortcuts.length) {
                 try {
-                    // ドラッグされたショートカットが実際に存在するか確認
-                    const draggedShortcut = window.shortcutManager.shortcuts[currentDraggedIndex];
-                    if (!draggedShortcut) {
-                        console.error('Dragged shortcut not found at index:', currentDraggedIndex);
-                        return;
-                    }
-                    
-                    // ドラッグされたアイテムが実際にこのフォルダーに属しているか確認
-                    if (draggedShortcut.folderId !== folderId) {
-                        console.error('Dragged item does not belong to this folder:', draggedShortcut);
-                        return;
-                    }
-                    
-                    // フォルダーから外に移動
+                    console.log('Moving item out of folder to end of list');
+                    // フォルダーから外に移動（自動的に最後尾に配置される）
                     window.shortcutManager.moveShortcutToFolder(currentDraggedIndex, null);
                     
-                    // インデックスをクリア（moveShortcutToFolderによって配列が変更される可能性があるため）
+                    // インデックスをクリア
                     currentDraggedIndex = null;
                     
                     // モーダルを更新

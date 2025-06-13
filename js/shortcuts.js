@@ -779,12 +779,15 @@ class ShortcutManager {
         // フォルダーから外に出す場合、空のフォルダーを削除
         const oldFolderId = shortcut.folderId;
         shortcut.folderId = folderId;
-            
-        // フォルダーから外に出す場合の処理
-        // ただし、フォルダー自体を移動しているわけではないので、isFolder は変更しない
-        if (folderId === null && !shortcut.isFolder) {
-            // 通常のショートカットをフォルダーから外に出す場合の処理
-            console.log('Moving shortcut out of folder');
+        
+        // フォルダーから外に出す場合は最後尾に移動
+        if (folderId === null && oldFolderId !== null) {
+            console.log('Moving shortcut out of folder to the end');
+            // 現在の位置から削除
+            this.shortcuts.splice(shortcutIndex, 1);
+            // 最後尾に追加
+            this.shortcuts.push(shortcut);
+            console.log('Moved to end of list');
         }
             
         if (folderId === null && oldFolderId) {
