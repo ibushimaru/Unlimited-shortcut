@@ -19,6 +19,13 @@ class ShortcutManager {
             this.folders = result.folders || [];
         }
         
+        // データクリーンアップ（起動時に自動実行）
+        const cleaned = this.cleanupData();
+        if (cleaned) {
+            console.log('[init] Data was cleaned up');
+            await this.save();
+        }
+        
         // 既存のショートカットのファビコンを更新
         await this.updateAllFavicons();
         
@@ -59,6 +66,59 @@ class ShortcutManager {
         }
     }
 
+    // データクリーンアップ（内部メソッド）
+    cleanupData() {
+        const beforeCount = this.shortcuts.length;
+        let changed = false;
+        
+        // 不正なデータを削除
+        this.shortcuts = this.shortcuts.filter((s, index) => {
+            if (!s) {
+                console.log(`[cleanupData] Removing null/undefined at index ${index}`);
+                changed = true;
+                return false;
+            }
+            if (!s.name || !s.url) {
+                console.log(`[cleanupData] Removing invalid shortcut at index ${index}:`, s);
+                changed = true;
+                return false;
+            }
+            
+            // isFolderフラグが未定義の場合は設定
+            if (s.isFolder === undefined) {
+                s.isFolder = s.url.startsWith('#folder-');
+                changed = true;
+            }
+            
+            // フォルダーでないのにfolderIdが自分自身を指している場合は修正
+            if (!s.isFolder && s.folderId === s.id) {
+                console.log('[cleanupData] Fixing self-referencing shortcut:', s);
+                s.folderId = null;
+                changed = true;
+            }
+            
+            return true;
+        });
+        
+        // 孤立したフォルダーアイテムをチェック
+        const folderIds = new Set(this.shortcuts.filter(s => s.isFolder).map(s => s.folderId));
+        this.shortcuts.forEach(s => {
+            if (s.folderId && !s.isFolder && !folderIds.has(s.folderId)) {
+                console.log('[cleanupData] Orphaned folder item found, moving to root:', s);
+                s.folderId = null;
+                changed = true;
+            }
+        });
+        
+        const afterCount = this.shortcuts.length;
+        if (beforeCount !== afterCount) {
+            console.log(`[cleanupData] Removed ${beforeCount - afterCount} invalid items`);
+            changed = true;
+        }
+        
+        return changed;
+    }
+    
     // カテゴリからフォルダーへの移行
     async migrateFromCategories(shortcuts) {
         if (!shortcuts) {
@@ -127,6 +187,9 @@ class ShortcutManager {
             this.shortcuts = validShortcuts;
         }
         
+        // 配列の連続性を確認（undefined要素を完全に除去）
+        this.shortcuts = this.shortcuts.filter(s => s !== undefined && s !== null);
+        
         console.log(`[save] Saving ${this.shortcuts.length} shortcuts`);
         await chrome.storage.sync.set({ 
             shortcuts: this.shortcuts,
@@ -178,8 +241,21 @@ class ShortcutManager {
             const deletedItem = this.shortcuts[index];
             console.log(`[delete] Deleting: "${deletedItem?.name}"`);
             
+            // フォルダーを削除する場合、中のアイテムを外に出す
+            if (deletedItem && deletedItem.isFolder) {
+                const folderId = deletedItem.folderId;
+                this.shortcuts.forEach(s => {
+                    if (s.folderId === folderId && !s.isFolder) {
+                        s.folderId = null;
+                    }
+                });
+            }
+            
             // 新しい配列を作成（削除対象を除外）
             this.shortcuts = this.shortcuts.filter((_, i) => i !== index);
+            
+            // 配列を圧縮して空きを除去
+            this.shortcuts = this.shortcuts.filter(s => s !== undefined && s !== null);
             
             console.log(`[delete] After deletion, total: ${this.shortcuts.length}`);
             await this.save();
@@ -427,6 +503,7 @@ class ShortcutManager {
         })));
 
         // データの整合性チェック - 無効なアイテムを修復
+        const beforeCount = this.shortcuts.length;
         this.shortcuts = this.shortcuts.map((s, idx) => {
             if (!s) {
                 console.warn(`[render] Found null/undefined at index ${idx}, removing`);
@@ -438,6 +515,12 @@ class ShortcutManager {
             }
             return s;
         }).filter(s => s !== null);
+        
+        if (beforeCount !== this.shortcuts.length) {
+            console.warn(`[render] Removed ${beforeCount - this.shortcuts.length} invalid items`);
+            // 変更があった場合は保存
+            this.save();
+        }
 
         // 検索中の場合はすべてのフォルダーを開く
         if (this.searchKeyword) {
@@ -1379,13 +1462,21 @@ window.restoreShortcuts = async function() {
     console.log('Current shortcuts:', manager.shortcuts);
     
     // フォルダー内のショートカットも含めてすべて表示
-    const allShortcuts = manager.shortcuts.map(s => ({
-        name: s.name,
-        url: s.url,
-        isFolder: s.isFolder,
-        folderId: s.folderId
+    const allShortcuts = manager.shortcuts.map((s, index) => ({
+        index: index,
+        name: s ? s.name : 'UNDEFINED',
+        url: s ? s.url : 'UNDEFINED',
+        isFolder: s ? s.isFolder : 'UNDEFINED',
+        folderId: s ? s.folderId : 'UNDEFINED',
+        valid: s && s.name && s.url
     }));
     console.table(allShortcuts);
+    
+    // データの整合性チェック
+    const invalidCount = allShortcuts.filter(s => !s.valid).length;
+    if (invalidCount > 0) {
+        console.warn(`Found ${invalidCount} invalid items`);
+    }
     
     // デフォルトに戻す場合は以下のコメントを外す
     // manager.shortcuts = manager.getDefaultShortcuts();
@@ -1396,12 +1487,20 @@ window.restoreShortcuts = async function() {
 // データクリーンアップ関数
 window.cleanupShortcuts = async function() {
     const manager = window.shortcutManager;
+    const beforeCount = manager.shortcuts.length;
+    
+    console.log('=== Starting Cleanup ===');
+    console.log('Before cleanup:', manager.shortcuts);
     
     // 不正なデータを削除
-    manager.shortcuts = manager.shortcuts.filter(s => {
+    manager.shortcuts = manager.shortcuts.filter((s, index) => {
         // 必須フィールドがない場合は削除
-        if (!s || !s.name || !s.url) {
-            console.log('Removing invalid shortcut:', s);
+        if (!s) {
+            console.log(`Removing null/undefined at index ${index}`);
+            return false;
+        }
+        if (!s.name || !s.url) {
+            console.log(`Removing invalid shortcut at index ${index}:`, s);
             return false;
         }
         
@@ -1419,9 +1518,38 @@ window.cleanupShortcuts = async function() {
         return true;
     });
     
+    // 孤立したフォルダーアイテムをチェック
+    const folderIds = new Set(manager.shortcuts.filter(s => s.isFolder).map(s => s.folderId));
+    manager.shortcuts.forEach(s => {
+        if (s.folderId && !s.isFolder && !folderIds.has(s.folderId)) {
+            console.log('Orphaned folder item found, moving to root:', s);
+            s.folderId = null;
+        }
+    });
+    
+    // 空のフォルダーを削除
+    const emptyFolders = manager.shortcuts.filter(s => {
+        if (s.isFolder) {
+            const itemsInFolder = manager.shortcuts.filter(item => 
+                item.folderId === s.folderId && !item.isFolder
+            ).length;
+            return itemsInFolder === 0;
+        }
+        return false;
+    });
+    
+    if (emptyFolders.length > 0) {
+        console.log('Removing empty folders:', emptyFolders.map(f => f.name));
+        manager.shortcuts = manager.shortcuts.filter(s => 
+            !emptyFolders.includes(s)
+        );
+    }
+    
+    const afterCount = manager.shortcuts.length;
+    console.log(`Cleanup complete. Removed ${beforeCount - afterCount} items. Total: ${afterCount}`);
+    
     await manager.save();
     manager.render();
-    console.log('Cleanup complete. Total shortcuts:', manager.shortcuts.length);
 };
 
 // デバッグ用：ドラッグ&ドロップのチェック
@@ -1482,6 +1610,48 @@ window.testDragDrop = function() {
         const realIndex = manager.shortcuts.indexOf(s);
         console.log(`  [${realIndex}] ${s.name} ${s.isFolder ? '📁' : '🔗'}`);
     });
+};
+
+// 空白スペースの診断
+window.checkEmptySpaces = function() {
+    const manager = window.shortcutManager;
+    console.log('=== Checking for Empty Spaces ===');
+    
+    // 現在の配列の状態を確認
+    console.log('Total items in array:', manager.shortcuts.length);
+    
+    // 各要素を詳細にチェック
+    let emptyCount = 0;
+    manager.shortcuts.forEach((item, index) => {
+        if (!item) {
+            console.error(`Empty slot at index ${index}: item is ${item}`);
+            emptyCount++;
+        } else if (!item.name || !item.url) {
+            console.error(`Invalid item at index ${index}:`, item);
+            emptyCount++;
+        }
+    });
+    
+    if (emptyCount > 0) {
+        console.error(`Found ${emptyCount} empty/invalid slots!`);
+        console.log('Run window.cleanupShortcuts() to fix this.');
+    } else {
+        console.log('✓ No empty spaces found in data array');
+    }
+    
+    // DOM要素もチェック
+    const grid = document.getElementById('shortcutsGrid');
+    if (grid) {
+        const items = grid.querySelectorAll('.shortcut-item');
+        const addButton = grid.querySelector('[data-is-add-button="true"]');
+        console.log(`DOM elements: ${items.length} items + ${addButton ? 1 : 0} add button`);
+        
+        // データとDOMの数が一致するかチェック
+        const visibleDataCount = manager.shortcuts.filter(s => !s.folderId || s.isFolder).length;
+        if (items.length !== visibleDataCount) {
+            console.warn(`Mismatch: ${visibleDataCount} items in data, ${items.length} in DOM`);
+        }
+    }
 };
 
 // デバッグ用：フォルダー構造を表示
