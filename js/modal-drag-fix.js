@@ -23,8 +23,8 @@
         if (modalDragState.isDragging) {
             e.preventDefault();
             
-            // モーダルコンテンツの外側の場合
-            if (!modalContent.contains(e.target)) {
+            // モーダルコンテンツの外側の場合（モーダル背景のみ）
+            if (e.target === modal || (!modalContent.contains(e.target) && modal.contains(e.target))) {
                 modal.classList.add('modal-drag-out');
             } else {
                 modal.classList.remove('modal-drag-out');
@@ -33,26 +33,16 @@
     });
     
     modal.addEventListener('drop', function(e) {
-        if (modalDragState.isDragging && !modalContent.contains(e.target)) {
+        if (modalDragState.isDragging && 
+            (e.target === modal || (!modalContent.contains(e.target) && modal.contains(e.target)))) {
             e.preventDefault();
             e.stopPropagation();
             
-            console.log('Drop detected outside modal content');
+            console.log('[modal-drag-fix] Drop detected outside modal content');
+            console.log('[modal-drag-fix] Skipping duplicate moveShortcutToFolder call');
             
-            // フォルダーから外に移動
-            if (window.shortcutManager && 
-                typeof modalDragState.draggedIndex === 'number' && 
-                !isNaN(modalDragState.draggedIndex) &&
-                modalDragState.draggedIndex >= 0) {
-                window.shortcutManager.moveShortcutToFolder(modalDragState.draggedIndex, null);
-                
-                // モーダルを閉じる
-                setTimeout(() => {
-                    if (window.closeFolderModal) {
-                        window.closeFolderModal();
-                    }
-                }, 100);
-            }
+            // newtab.jsがすでに処理しているため、ここでは何もしない
+            // 重複実行を防ぐ
         }
         
         modal.classList.remove('modal-drag-out');

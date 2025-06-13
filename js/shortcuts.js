@@ -405,11 +405,20 @@ class ShortcutManager {
 
     // フォルダーを開く
     openFolder(folderId) {
+        console.log('[openFolder] Attempting to open folder:', folderId);
+        console.log('[openFolder] Current shortcuts:', this.shortcuts.filter(s => s.isFolder).map(s => ({ 
+            name: s.name, 
+            folderId: s.folderId, 
+            isFolder: s.isFolder 
+        })));
+        
         const folder = this.shortcuts.find(s => s.isFolder && s.folderId === folderId);
         if (folder && window.openFolderModal) {
+            console.log('[openFolder] Folder found:', folder.name);
             window.openFolderModal(folderId, folder.name);
         } else {
-            console.error('Folder not found:', folderId);
+            console.error('[openFolder] Folder not found:', folderId);
+            console.error('[openFolder] Available folders:', this.shortcuts.filter(s => s.isFolder));
             // フォルダーが見つからない場合、グリッドを再描画
             this.render();
         }
@@ -851,8 +860,12 @@ class ShortcutManager {
 
     // ショートカットをフォルダーに移動
     async moveShortcutToFolder(shortcutIndex, folderId) {
-        console.log('moveShortcutToFolder called:', { shortcutIndex, folderId });
+        console.log('=== moveShortcutToFolder START ===');
+        console.log('Parameters:', { shortcutIndex, folderId });
         console.log('Call stack:', new Error().stack);
+        console.log('Current shortcuts before move:', this.shortcuts.map((s, i) => 
+            `[${i}] ${s.name} (folder: ${s.folderId || 'none'})`
+        ));
         
         // より厳密な範囲チェック
         if (typeof shortcutIndex !== 'number' || isNaN(shortcutIndex) || 
@@ -868,7 +881,7 @@ class ShortcutManager {
             return;
         }
         
-        console.log('Moving shortcut:', JSON.stringify(shortcut));
+        console.log('Moving shortcut:', `"${shortcut.name}" from index ${shortcutIndex}`);
         
         // フォルダーをフォルダーに入れようとした場合は無視
         if (shortcut.isFolder) {
@@ -894,27 +907,8 @@ class ShortcutManager {
             
             console.log('Remaining items in folder:', remainingInFolder);
             
-            // 空のフォルダーを削除（アイテムを追加する前に）
-            if (remainingInFolder === 0) {
-                console.log('Removing empty folder');
-                const folderIndex = this.shortcuts.findIndex(s => 
-                    s.isFolder && s.folderId === oldFolderId
-                );
-                if (folderIndex !== -1) {
-                    this.shortcuts.splice(folderIndex, 1);
-                    console.log('Folder removed at index:', folderIndex);
-                    
-                    // フォルダーが削除された場合、開いているモーダルを閉じる
-                    const openModal = document.getElementById('folderModal');
-                    if (openModal && openModal.classList.contains('show') && 
-                        openModal.dataset.folderId === oldFolderId) {
-                        console.log('Closing modal for deleted folder');
-                        if (window.closeFolderModal) {
-                            window.closeFolderModal();
-                        }
-                    }
-                }
-            }
+            // フォルダーは自動削除しない - ユーザーが手動で削除するまで残す
+            // 空のフォルダーでも維持する
             
             // 最後尾に追加
             this.shortcuts.push(shortcut);
@@ -923,10 +917,13 @@ class ShortcutManager {
         
         console.log('Updated folderId to:', folderId);
         console.log('Updated isFolder to:', shortcut.isFolder);
+        console.log('Shortcuts after move:', this.shortcuts.map((s, i) => 
+            `[${i}] ${s.name} (folder: ${s.folderId || 'none'})`
+        ));
+        console.log('=== moveShortcutToFolder END ===');
         
         await this.save();
         this.render();
-        console.log('Move complete');
     }
 
     // フォルダーコンテキストメニューの表示

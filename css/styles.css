@@ -222,8 +222,11 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 24px;
+    line-height: 1;
     color: #5f6368;
     margin-bottom: 8px;
+    flex-shrink: 0;
+    padding-bottom: 6px;
 }
 
 /* モーダル */
@@ -410,6 +413,13 @@ body {
 .folder-drag-over {
     background-color: rgba(26, 115, 232, 0.1);
     box-shadow: 0 0 0 2px #1a73e8;
+    transition: all 0.2s ease;
+}
+
+/* フォルダーへのフォルダードロップ拒否 */
+.folder-reject {
+    background-color: rgba(234, 67, 53, 0.1);
+    box-shadow: 0 0 0 2px #ea4335;
     transition: all 0.2s ease;
 }
 
@@ -984,7 +994,7 @@ body.dark-mode .folder-select:focus {
 }
 
 .folder-title-editable {
-    border: 1px solid transparent;
+    border: 2px solid #dadce0;
     padding: 4px 8px;
     border-radius: 4px;
     transition: border-color 0.2s, background-color 0.2s;
@@ -1048,6 +1058,35 @@ body.dark-mode .folder-select:focus {
     margin: -10px;
 }
 
+/* フォルダーモーダルからドラッグアウト時の視覚的フィードバック */
+.modal.modal-drag-out {
+    position: relative;
+}
+
+.modal.modal-drag-out::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(26, 115, 232, 0.1);
+    border: 3px dashed #1a73e8;
+    border-radius: 12px;
+    pointer-events: none;
+    animation: dragOutPulse 1s ease-in-out infinite;
+    z-index: 1;
+}
+
+@keyframes dragOutPulse {
+    0%, 100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
 /* ダークモード - フォルダースタイル */
 body.dark-mode .shortcut-folder .shortcut-icon {
     background-color: rgba(255, 255, 255, 0.1);
@@ -1075,6 +1114,10 @@ body.dark-mode .folder-close-btn:hover {
     background-color: #3c4043;
 }
 
+body.dark-mode .folder-title-editable {
+    border-color: #5f6368;
+}
+
 body.dark-mode .folder-title-editable:hover {
     background-color: #3c4043;
     border-color: #5f6368;
@@ -1082,5 +1125,11 @@ body.dark-mode .folder-title-editable:hover {
 
 body.dark-mode .folder-title-editable:focus {
     background-color: #202124;
+    border-color: #8ab4f8;
+}
+
+/* ダークモード - モーダルドラッグアウト */
+body.dark-mode .modal.modal-drag-out::before {
+    background-color: rgba(138, 180, 248, 0.1);
     border-color: #8ab4f8;
 }

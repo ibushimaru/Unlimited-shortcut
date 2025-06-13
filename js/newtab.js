@@ -64,10 +64,7 @@ function setupEventListeners() {
             if (shortcut.isFolder) {
                 // フォルダーの名前変更 - モーダルを開いて直接編集
                 window.openFolderModal(shortcut.folderId, shortcut.name);
-                // モーダルが開いたらタイトルにフォーカス
-                setTimeout(() => {
-                    elements.folderModalTitle.focus();
-                }, 100);
+                // フォーカスは削除 - ユーザーがクリックした時のみ編集可能にする
             } else {
                 openModal(true, shortcut, index);
             }
@@ -238,16 +235,27 @@ function setupFolderModal() {
     let originalFolderName = '';
     let currentFolderId = null;
     
+    // フォルダータイトルのクリックで編集モードに入る
+    elements.folderModalTitle.addEventListener('click', (e) => {
+        // すでに編集中でない場合のみフォーカスを設定
+        if (document.activeElement !== e.target) {
+            originalFolderName = e.target.textContent;
+            currentFolderId = elements.folderModal.dataset.folderId;
+            
+            // フォーカスを設定してテキストを選択
+            e.target.focus();
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(e.target);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    });
+    
     elements.folderModalTitle.addEventListener('focus', (e) => {
+        // フォーカス時の処理（クリック以外でフォーカスされた場合）
         originalFolderName = e.target.textContent;
         currentFolderId = elements.folderModal.dataset.folderId;
-        
-        // テキストを選択
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(e.target);
-        selection.removeAllRanges();
-        selection.addRange(range);
     });
     
     elements.folderModalTitle.addEventListener('blur', async (e) => {
@@ -308,19 +316,24 @@ window.openFolderModal = function(folderId, folderName) {
         grid.appendChild(item);
     });
     
-    // 空の場合のメッセージ
-    if (folderItems.length === 0) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'folder-placeholder';
-        placeholder.textContent = chrome.i18n.getMessage('emptyFolder') || 'This folder is empty';
-        placeholder.style.gridColumn = '1 / -1';
-        grid.appendChild(placeholder);
-    }
+    // 空の場合のメッセージ（削除）
+    // フォルダーが空でも何も表示しない
     
     // フォルダー内でのドラッグ&ドロップを設定
     // setupDragAndDropは呼ばない（重複するため）
     // モーダル外へのドロップを許可
     setupModalDragOut(folderId);
+    
+    // フォルダー内のアイテムにMouseDragManagerを設定
+    if (window.MouseDragManager && folderItems.length > 0) {
+        // フォルダー用のMouseDragManagerインスタンスを作成または再利用
+        if (!window.folderMouseDragManager) {
+            window.folderMouseDragManager = new FolderMouseDragManager(window.shortcutManager, folderId);
+        } else {
+            window.folderMouseDragManager.setFolderId(folderId);
+        }
+        window.folderMouseDragManager.init();
+    }
 };
 
 // モーダル外へのドラッグアウト設定
@@ -375,12 +388,16 @@ function setupModalDragOut(folderId) {
     // モーダル背景（暗い部分）へのドラッグオーバー
     const handleModalDragOver = (e) => {
         // モーダルコンテンツ外かつモーダル内の場合
-        if (isDraggingFromModal && !modalContent.contains(e.target)) {
+        // ただし、モーダル自体（背景）にドラッグしている場合のみ
+        if (isDraggingFromModal && (e.target === modal || (!modalContent.contains(e.target) && modal.contains(e.target)))) {
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
             modal.classList.add('modal-drag-out');
             // dragoverは頻繁に発火するのでログは削除
+        } else if (isDraggingFromModal && modalContent.contains(e.target)) {
+            // モーダルコンテンツ内にドラッグ戻した場合はクラスを削除
+            modal.classList.remove('modal-drag-out');
         }
     };
     
@@ -388,7 +405,9 @@ function setupModalDragOut(folderId) {
     const handleModalDrop = (e) => {
         console.log('Drop event on:', e.target, 'isDraggingFromModal:', isDraggingFromModal, 'currentDraggedIndex:', currentDraggedIndex);
         
-        if (isDraggingFromModal && currentDraggedIndex !== null && !modalContent.contains(e.target)) {
+        // モーダル背景（暗い部分）にドロップした場合のみ処理
+        if (isDraggingFromModal && currentDraggedIndex !== null && 
+            (e.target === modal || (!modalContent.contains(e.target) && modal.contains(e.target)))) {
             e.preventDefault();
             e.stopPropagation();
             
