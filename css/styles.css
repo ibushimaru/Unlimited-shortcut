@@ -27,13 +27,11 @@ body {
     caret-color: auto !important;
 }
 
-/* ショートカット検索バーのカーソル制御 */
-.shortcut-search {
+/* contenteditable="false"は明示的に非編集可能 */
+[contenteditable="false"] {
     caret-color: transparent !important;
-}
-
-.shortcut-search:focus {
-    caret-color: auto !important;
+    user-select: none;
+    cursor: pointer;
 }
 
 /* メイン検索バーは常にカーソル表示可能 */
@@ -41,11 +39,9 @@ body {
     caret-color: auto !important;
 }
 
-/* contenteditable要素のカーソルを制御 */
-[contenteditable="false"] {
-    caret-color: transparent !important;
-    user-select: none;
-    cursor: pointer;
+/* ショートカット検索バーはフォーカス時のみカーソル表示 */
+.shortcut-search:focus {
+    caret-color: auto !important;
 }
 
 /* 検索バー以外のフォーカスアウトラインを非表示 */
@@ -1072,12 +1068,6 @@ body.dark-mode .folder-select:focus {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    caret-color: transparent !important;
-}
-
-/* フォルダーヘッダー内のすべての要素でカーソルを非表示 */
-.folder-modal-header * {
-    caret-color: transparent !important;
 }
 
 .folder-modal-header h2 {
@@ -1091,13 +1081,9 @@ body.dark-mode .folder-select:focus {
     transition: border-color 0.2s, background-color 0.2s;
     cursor: text;
     outline: none;
-    caret-color: transparent !important;
 }
 
-/* フォルダータイトルが編集可能でフォーカスされた時のみカーソル表示 */
-.folder-title-editable[contenteditable="true"]:focus {
-    caret-color: auto !important;
-}
+/* Note: caret-color is already handled by the global [contenteditable] rules */
 
 .folder-title-editable:hover {
     background-color: #f1f3f4;
@@ -1124,7 +1110,6 @@ body.dark-mode .folder-select:focus {
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
-    caret-color: transparent !important;
     user-select: none;
 }
 

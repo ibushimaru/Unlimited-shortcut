@@ -1,15 +1,3 @@
-// フォーカスをデバッグする関数
-function debugFocus() {
-    const activeElement = document.activeElement;
-    console.log('Active element:', activeElement);
-    console.log('Tag:', activeElement.tagName);
-    console.log('Class:', activeElement.className);
-    console.log('ID:', activeElement.id);
-    console.log('ContentEditable:', activeElement.contentEditable);
-}
-
-// 自動フォーカス解除は削除 - 検索バーの使用を妨げるため
-
 // DOM要素の取得
 const elements = {
     modal: document.getElementById('shortcutModal'),
@@ -136,12 +124,12 @@ function setupSearchBar() {
             shortcutSearchInput.blur();
         }
         
-        // contenteditable要素以外をクリックしたら、すべてのcontenteditable要素からフォーカスを外す
+        // contenteditable要素以外をクリックしたら、すべてのcontenteditable要素を非編集状態にする
         if (!e.target.hasAttribute('contenteditable') && !e.target.closest('[contenteditable="true"]')) {
             const editableElements = document.querySelectorAll('[contenteditable="true"]');
             editableElements.forEach(el => {
-                el.blur();
                 el.contentEditable = 'false';
+                el.blur();
             });
         }
     });
@@ -289,8 +277,14 @@ function setupFolderModal() {
     // フォルダー名をクリックした時だけ編集可能にする
     elements.folderModalTitle.addEventListener('click', (e) => {
         e.stopPropagation();
+        // 現在の値を保存
+        originalFolderName = e.target.textContent;
+        currentFolderId = elements.folderModal.dataset.folderId;
+        
+        // 編集可能にしてフォーカス
         elements.folderModalTitle.contentEditable = 'true';
         elements.folderModalTitle.focus();
+        
         // テキスト全体を選択
         const range = document.createRange();
         range.selectNodeContents(elements.folderModalTitle);
@@ -299,17 +293,10 @@ function setupFolderModal() {
         selection.addRange(range);
     });
     
-    // 既存のクリックイベントと統合済み（上記のイベントリスナーで処理）
-    
-    elements.folderModalTitle.addEventListener('focus', (e) => {
-        // フォーカス時の処理（クリック以外でフォーカスされた場合）
-        originalFolderName = e.target.textContent;
-        currentFolderId = elements.folderModal.dataset.folderId;
-    });
-    
     elements.folderModalTitle.addEventListener('blur', async (e) => {
-        // contentEditableをfalseに戻す
+        // 編集を終了
         elements.folderModalTitle.contentEditable = 'false';
+        
         const newName = e.target.textContent.trim();
         if (newName && newName !== originalFolderName && currentFolderId) {
             // フォルダーを検索して名前を更新
@@ -345,17 +332,9 @@ window.openFolderModal = function(folderId, folderName) {
     elements.folderModal.classList.add('show');
     elements.folderModal.dataset.folderId = folderId;
     
-    // フォルダー名からフォーカスを外し、編集不可にする
-    elements.folderModalTitle.blur();
+    // 編集不可状態で開く
     elements.folderModalTitle.contentEditable = 'false';
-    
-    // カーソルが表示されないように、確実にフォーカスを外す
-    setTimeout(() => {
-        if (document.activeElement === elements.folderModalTitle) {
-            elements.folderModalTitle.blur();
-            document.body.focus(); // bodyにフォーカスを移動
-        }
-    }, 0);
+    elements.folderModalTitle.blur();
     
     // フォルダー内のショートカットを表示
     const grid = elements.folderModalGrid;
@@ -413,9 +392,7 @@ window.updateFolderModalContent = function(folderId, folderName) {
     
     elements.folderModalTitle.textContent = folderName;
     
-    // フォルダー名からフォーカスを外し、編集不可にする
-    elements.folderModalTitle.blur();
-    elements.folderModalTitle.contentEditable = 'false';
+    // Note: contentEditable is already set to 'false' in openFolderModal
     
     // フォルダー内のショートカットを表示
     const grid = elements.folderModalGrid;
@@ -692,11 +669,9 @@ function setupShortcutSearch() {
     });
     
     // ページロード時に誤ってフォーカスが残っている場合の対策
-    setTimeout(() => {
-        if (document.activeElement === elements.shortcutSearch) {
-            elements.shortcutSearch.blur();
-        }
-    }, 100);
+    if (document.activeElement === elements.shortcutSearch) {
+        elements.shortcutSearch.blur();
+    }
 }
 
 // ダークモードの設定
