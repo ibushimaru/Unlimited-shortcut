@@ -346,10 +346,20 @@ class MouseDragManager {
                             const visualIndex = this.pendingInsertIndex;
                             const dataIndex = this.convertVisualIndexToDataIndex(visualIndex);
                             
+                            console.log(`[handleMouseUp] Reorder calculation:`, {
+                                visualIndex,
+                                dataIndex,
+                                draggedIndex: this.draggedIndex,
+                                totalItems: this.shortcutManager.shortcuts.length,
+                                valid: dataIndex >= 0 && dataIndex <= this.shortcutManager.shortcuts.length
+                            });
+                            
                             // インデックスの範囲チェック
                             if (dataIndex !== this.draggedIndex && 
                                 dataIndex >= 0 && 
-                                dataIndex <= this.shortcutManager.shortcuts.length) {
+                                dataIndex <= this.shortcutManager.shortcuts.length &&
+                                this.draggedIndex >= 0 &&
+                                this.draggedIndex < this.shortcutManager.shortcuts.length) {
                                 console.log('Reordering from', this.draggedIndex, 'to', dataIndex);
                                 // reorderを実行し、完了を待つ
                                 this.shortcutManager.reorder(this.draggedIndex, dataIndex).then(() => {
@@ -579,7 +589,9 @@ class MouseDragManager {
                             console.log(`  - Note: reorder will apply -1 adjustment for left-to-right`);
                             // 「1つ若い場所に挿入される」問題を修正するため、+2を返す
                             // (reorderで-1されるので、結果的に+1になる)
-                            return i + 2;
+                            const result = i + 2;
+                            // 最大値を超えないように制限
+                            return Math.min(result, this.shortcutManager.shortcuts.length);
                         }
                         visibleCount++;
                     }
