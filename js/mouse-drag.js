@@ -148,20 +148,17 @@ class MouseDragManager {
                 this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
                 this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
                 
-                // 元の要素を完全に隠す（グリッドから除外）
-                this.draggedElement.classList.add('drag-source');
-                this.draggedElement.style.position = 'absolute';
+                // 元の要素を完全に隠す（グリッドアイテムとして扱われないようにする）
+                this.draggedElement.classList.remove('shortcut-item');
+                this.draggedElement.classList.add('dragging-hidden');
+                this.draggedElement.style.position = 'fixed';
                 this.draggedElement.style.left = '-9999px';
-                this.draggedElement.style.transition = 'none';
-                
-                // グリッドを更新して即座にスペースを詰める
-                const grid = document.getElementById('shortcutsGrid');
-                if (grid) {
-                    // 強制的にレイアウトを再計算
-                    grid.style.display = 'none';
-                    grid.offsetHeight; // リフローを強制
-                    grid.style.display = '';
-                }
+                this.draggedElement.style.top = '-9999px';
+                this.draggedElement.style.width = '0';
+                this.draggedElement.style.height = '0';
+                this.draggedElement.style.margin = '0';
+                this.draggedElement.style.opacity = '0';
+                this.draggedElement.style.pointerEvents = 'none';
                 
                 console.log('Drag started after threshold');
             }
@@ -668,10 +665,11 @@ class MouseDragManager {
         const itemHeight = 112;
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
-        // プレースホルダーを含む全要素を取得
+        // プレースホルダーを含む全要素を取得（dragging-hiddenクラスは除外される）
         const allChildren = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton
+            !child.dataset.isAddButton &&
+            !child.classList.contains('dragging-hidden')
         );
         
         // プレースホルダーの位置を取得
@@ -689,8 +687,9 @@ class MouseDragManager {
             
             const itemDataIndex = parseInt(item.dataset.index);
             
-            // ドラッグ中のアイテムはスキップ（すでに隠されている）
+            // ドラッグ中のアイテムはスキップ（DOMから削除されているので通常は来ないはず）
             if (itemDataIndex === this.draggedIndex) {
+                console.warn('Dragged item found in moveItemsForPlaceholder - this should not happen');
                 return;
             }
             
@@ -741,13 +740,13 @@ class MouseDragManager {
                 item.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 item.style.transform = '';
                 item.style.transitionDelay = '';
-                item.style.pointerEvents = '';
-                item.classList.remove('moving');
-                item.classList.remove('drag-source');
-                // 表示状態と透明度をリセット
-                item.style.position = '';
-                item.style.left = '';
-                item.style.opacity = '';
+                // ドラッグ中のアイテムはDOMから削除されているのでスキップ
+                if (parseInt(item.dataset.index) !== this.draggedIndex) {
+                    item.style.pointerEvents = '';
+                    item.classList.remove('moving');
+                    // 表示状態と透明度をリセット
+                    item.style.opacity = '';
+                }
                 
                 // アニメーション完了後にトランジションをクリア
                 setTimeout(() => {
@@ -781,12 +780,17 @@ class MouseDragManager {
         }
         
         if (this.draggedElement) {
-            // 元の要素を表示に戻す
-            this.draggedElement.classList.remove('drag-source');
+            // クラスとスタイルをリセット
+            this.draggedElement.classList.remove('dragging-hidden');
+            this.draggedElement.classList.add('shortcut-item');
             this.draggedElement.style.position = '';
             this.draggedElement.style.left = '';
-            this.draggedElement.style.transition = '';
+            this.draggedElement.style.top = '';
+            this.draggedElement.style.width = '';
+            this.draggedElement.style.height = '';
+            this.draggedElement.style.margin = '';
             this.draggedElement.style.opacity = '1';
+            this.draggedElement.style.pointerEvents = '';
         }
 
         // ホバーエフェクトをクリア
