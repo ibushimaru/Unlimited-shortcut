@@ -148,9 +148,9 @@ class MouseDragManager {
                 this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
                 this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
                 
-                // 元の要素を半透明に（アニメーション付き）
+                // 元の要素を完全に隠す（スペースを詰める）
                 this.draggedElement.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                this.draggedElement.style.opacity = '0.2';
+                this.draggedElement.style.display = 'none';
                 
                 console.log('Drag started after threshold');
             }
@@ -670,7 +670,7 @@ class MouseDragManager {
         // ドラッグ中のアイテムの元の位置を取得
         const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
         
-        console.log(`[moveItems] Placeholder at index ${placeholderIndex}, dragged from ${draggedOriginalPos}`);
+        // console.log(`[moveItems] Placeholder at index ${placeholderIndex}, dragged from ${draggedOriginalPos}`);
         
         // 各アイテムの移動を計算
         allChildren.forEach((item, visualIndex) => {
@@ -678,10 +678,9 @@ class MouseDragManager {
             
             const itemDataIndex = parseInt(item.dataset.index);
             
-            // ドラッグ中のアイテムは半透明に
+            // ドラッグ中のアイテムは完全に隠す（スペースを詰める）
             if (itemDataIndex === this.draggedIndex) {
-                item.style.opacity = '0.3';
-                item.style.pointerEvents = 'none';
+                item.style.display = 'none';
                 return;
             }
             
@@ -692,24 +691,16 @@ class MouseDragManager {
             // 移動方向を決定する新しいロジック
             let targetPosition = visualIndex;
             
-            // 移動ロジック：元の実装に戻す
-            // プレースホルダーの位置とドラッグ元の位置に基づいて移動方向を決定
+            // 新しい移動ロジック：ドラッグ中のアイテムが隠れてスペースが詰まることを考慮
+            // 単純にプレースホルダーの位置に基づいて移動
             
-            if (draggedOriginalPos !== undefined) {
-                if (draggedOriginalPos < originalPos && placeholderIndex <= originalPos) {
-                    // ドラッグアイテムが前から移動してきて、プレースホルダーがこのアイテムの前にある
-                    // → このアイテムは左に移動（元の位置 - 1）
-                    targetPosition = visualIndex > 0 ? visualIndex - 1 : 0;
-                    console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves left to ${targetPosition}`);
-                } else if (draggedOriginalPos > originalPos && placeholderIndex > originalPos) {
-                    // ドラッグアイテムが後ろから移動してきて、プレースホルダーがこのアイテムの後ろにある
-                    // → このアイテムは右に移動（元の位置 + 1）
-                    targetPosition = visualIndex + 1;
-                    console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves right to ${targetPosition}`);
-                } else {
-                    // その他の場合は移動しない
-                    targetPosition = visualIndex;
-                }
+            if (visualIndex >= placeholderIndex) {
+                // プレースホルダー以降のアイテムは右に移動
+                targetPosition = visualIndex + 1;
+                // console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves right to ${targetPosition}`);
+            } else {
+                // プレースホルダーより前のアイテムは移動しない
+                targetPosition = visualIndex;
             }
             
             // 移動量を計算
@@ -743,10 +734,9 @@ class MouseDragManager {
                 item.style.transitionDelay = '';
                 item.style.pointerEvents = '';
                 item.classList.remove('moving');
-                // 透明度は元の要素のみリセット（クローンとは別）
-                if (!this.dragClone || item !== this.draggedElement) {
-                    item.style.opacity = '';
-                }
+                // 表示状態と透明度をリセット
+                item.style.display = '';
+                item.style.opacity = '';
                 
                 // アニメーション完了後にトランジションをクリア
                 setTimeout(() => {
@@ -780,8 +770,9 @@ class MouseDragManager {
         }
         
         if (this.draggedElement) {
-            // 元の要素をスムーズにリセット
+            // 元の要素を表示に戻す
             this.draggedElement.style.transition = 'opacity 0.3s ease';
+            this.draggedElement.style.display = '';
             this.draggedElement.style.opacity = '1';
         }
 
