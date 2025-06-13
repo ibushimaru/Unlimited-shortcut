@@ -241,8 +241,8 @@ class MouseDragManager {
                             }
                             // ドラッグ元がターゲットより左にある場合
                             else if (draggedDomIndex < targetDomIndex) {
-                                // 左から右へのドラッグ：アイテムは左に詰まるので、左側（before）に挿入
-                                insertBefore = true;
+                                // 左から右へのドラッグ：ドロップ位置で判定
+                                insertBefore = dropXPercent < 0.5;
                             }
                             // ドラッグ元がターゲットより右にある場合
                             else if (draggedDomIndex > targetDomIndex) {
@@ -659,23 +659,23 @@ class MouseDragManager {
         const itemHeight = 112;
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
-        // すべてのショートカットアイテムを取得（プレースホルダーを除く）
-        const allItems = Array.from(grid.children).filter(child => 
+        // プレースホルダーを含む全要素を取得
+        const allChildren = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
-            !child.dataset.isAddButton &&
-            child !== this.placeholder
+            !child.dataset.isAddButton
         );
         
-        // プレースホルダーのDOM位置を取得
-        const placeholderDomIndex = Array.from(grid.children).indexOf(this.placeholder);
-        if (placeholderDomIndex === -1) return;
+        // プレースホルダーの位置を取得
+        const placeholderIndex = allChildren.indexOf(this.placeholder);
+        if (placeholderIndex === -1) return;
         
         // ドラッグ中のアイテムの元の位置を取得
         const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
-        if (draggedOriginalPos === undefined) return;
         
-        // 各アイテムの移動を計算
-        allItems.forEach((item, currentIndex) => {
+        // 各アイテムの理想的な位置を計算
+        allChildren.forEach((item, visualIndex) => {
+            if (item === this.placeholder) return;
+            
             const itemDataIndex = parseInt(item.dataset.index);
             
             // ドラッグ中のアイテムは半透明に
@@ -689,47 +689,47 @@ class MouseDragManager {
             const originalPos = this.originalItemPositions.get(itemDataIndex);
             if (originalPos === undefined) return;
             
-            // 移動方向を決定
-            let targetPos = currentIndex;
+            // 理想的な位置を計算
+            let idealPos = originalPos;
             
-            // プレースホルダーより前にあるアイテムの処理
-            const itemDomIndex = Array.from(grid.children).indexOf(item);
-            
-            if (draggedOriginalPos < originalPos) {
-                // 左から右へのドラッグ
-                if (itemDomIndex < placeholderDomIndex) {
-                    // プレースホルダーより前にあるアイテムはそのまま
-                    targetPos = currentIndex;
-                } else {
-                    // プレースホルダーより後ろにあるアイテムは右へ移動
-                    targetPos = currentIndex + 1;
-                }
-            } else {
-                // 右から左へのドラッグ
-                if (itemDomIndex > placeholderDomIndex) {
-                    // プレースホルダーより後ろにあるアイテムはそのまま
-                    targetPos = currentIndex;
-                } else {
-                    // プレースホルダーより前にあるアイテムは左へ移動
-                    targetPos = currentIndex - 1;
+            // プレースホルダーの位置に基づいて調整
+            if (draggedOriginalPos !== undefined) {
+                if (draggedOriginalPos < originalPos && placeholderIndex <= originalPos) {
+                    // ドラッグアイテムが前から移動してきて、このアイテムより前か同じ位置にある
+                    idealPos = originalPos - 1;
+                } else if (draggedOriginalPos > originalPos && placeholderIndex > originalPos) {
+                    // ドラッグアイテムが後ろから移動してきて、このアイテムより後ろにある
+                    idealPos = originalPos + 1;
                 }
             }
             
-            // 現在位置と目標位置の差を計算
-            const currentRow = Math.floor(currentIndex / columns);
-            const currentCol = currentIndex % columns;
-            const targetRow = Math.floor(targetPos / columns);
-            const targetCol = targetPos % columns;
+            // 現在の視覚的位置と理想的位置の差を計算（デバッグ用）
+            // const deltaPos = idealPos - visualIndex;
             
-            const deltaX = (targetCol - currentCol) * (itemWidth + gap);
-            const deltaY = (targetRow - currentRow) * (itemHeight + gap);
+            // 行と列の差を計算
+            const currentRow = Math.floor(visualIndex / columns);
+            const currentCol = visualIndex % columns;
+            const idealRow = Math.floor(idealPos / columns);
+            const idealCol = idealPos % columns;
+            
+            const deltaX = (idealCol - currentCol) * (itemWidth + gap);
+            const deltaY = (idealRow - currentRow) * (itemHeight + gap);
             
             // アニメーションを適用
             if (deltaX !== 0 || deltaY !== 0) {
-                item.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                // より滑らかなスプリング効果のあるイージング
+                // cubic-bezier(0.34, 1.56, 0.64, 1) - バウンス効果あり
+                // cubic-bezier(0.25, 0.46, 0.45, 0.94) - スムーズなイーズアウト
+                // cubic-bezier(0.68, -0.55, 0.265, 1.55) - 弾性効果
+                item.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 item.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                
+                // 遅延を追加してより自然な動きに
+                const delay = visualIndex * 0.01; // 各アイテムに微小な遅延
+                item.style.transitionDelay = `${delay}s`;
             } else {
                 item.style.transform = '';
+                item.style.transitionDelay = '';
             }
         });
     }
