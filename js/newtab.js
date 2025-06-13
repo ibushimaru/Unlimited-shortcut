@@ -392,10 +392,21 @@ function setupModalDragOut(folderId) {
                     // フォルダーから外に移動
                     window.shortcutManager.moveShortcutToFolder(currentDraggedIndex, null);
                     
+                    // インデックスをクリア（moveShortcutToFolderによって配列が変更される可能性があるため）
+                    currentDraggedIndex = null;
+                    
                     // モーダルを更新
                     setTimeout(() => {
                         console.log('Updating modal after move');
-                        window.openFolderModal(folderId, elements.folderModalTitle.textContent);
+                        const folderStillExists = window.shortcutManager.shortcuts.some(s => s.isFolder && s.folderId === folderId);
+                        if (folderStillExists) {
+                            window.openFolderModal(folderId, elements.folderModalTitle.textContent);
+                        } else {
+                            // フォルダーが削除された場合はモーダルを閉じる
+                            console.log('Folder was removed, closing modal');
+                            modal.style.display = 'none';
+                            document.body.style.overflow = '';
+                        }
                     }, 100);
                 } catch (error) {
                     console.error('Error moving shortcut:', error);

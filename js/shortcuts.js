@@ -109,6 +109,25 @@ class ShortcutManager {
 
     // ショートカットの保存
     async save() {
+        // 保存前にデータの整合性を確認
+        const validShortcuts = this.shortcuts.filter((s, idx) => {
+            if (!s) {
+                console.error(`[save] Found null/undefined at index ${idx}`);
+                return false;
+            }
+            if (!s.name || !s.url) {
+                console.error(`[save] Invalid shortcut at index ${idx}:`, s);
+                return false;
+            }
+            return true;
+        });
+        
+        if (validShortcuts.length !== this.shortcuts.length) {
+            console.warn(`[save] Removed ${this.shortcuts.length - validShortcuts.length} invalid items`);
+            this.shortcuts = validShortcuts;
+        }
+        
+        console.log(`[save] Saving ${this.shortcuts.length} shortcuts`);
         await chrome.storage.sync.set({ 
             shortcuts: this.shortcuts,
             folders: this.folders 
@@ -153,32 +172,67 @@ class ShortcutManager {
 
     // ショートカットの削除
     async delete(index) {
+        console.log(`[delete] Deleting item at index ${index}, total: ${this.shortcuts.length}`);
+        
         if (index >= 0 && index < this.shortcuts.length) {
-            this.shortcuts.splice(index, 1);
+            const deletedItem = this.shortcuts[index];
+            console.log(`[delete] Deleting: "${deletedItem?.name}"`);
+            
+            // 新しい配列を作成（削除対象を除外）
+            this.shortcuts = this.shortcuts.filter((_, i) => i !== index);
+            
+            console.log(`[delete] After deletion, total: ${this.shortcuts.length}`);
             await this.save();
             this.render();
+        } else {
+            console.error(`[delete] Invalid index: ${index}`);
         }
     }
 
     // ショートカットの並び替え
     async reorder(fromIndex, toIndex) {
-        if (fromIndex !== toIndex && fromIndex >= 0 && toIndex >= 0) {
-            console.log('Reordering from', fromIndex, 'to', toIndex);
-            
-            // fromIndexがtoIndexより大きい場合、削除後のtoIndexを調整
-            if (fromIndex < toIndex) {
-                toIndex--;
-            }
-            
-            const item = this.shortcuts.splice(fromIndex, 1)[0];
-            this.shortcuts.splice(toIndex, 0, item);
-            await this.save();
-            
-            // アニメーション付きで再描画
-            const grid = document.getElementById('shortcutsGrid');
-            grid.classList.add('animating');
-            this.render();
+        // 詳細なログ出力
+        console.log(`[reorder] START: from=${fromIndex}, to=${toIndex}, total=${this.shortcuts.length}`);
+        
+        // インデックスの検証
+        if (fromIndex === toIndex || 
+            fromIndex < 0 || fromIndex >= this.shortcuts.length ||
+            toIndex < 0 || toIndex > this.shortcuts.length) {
+            console.error('[reorder] Invalid indices:', { fromIndex, toIndex, length: this.shortcuts.length });
+            return;
         }
+        
+        // アイテムの存在確認
+        const item = this.shortcuts[fromIndex];
+        if (!item) {
+            console.error('[reorder] No item found at fromIndex:', fromIndex);
+            return;
+        }
+        
+        // 新しい配列を作成して操作（元の配列を直接変更しない）
+        const newShortcuts = [...this.shortcuts];
+        
+        // アイテムを削除
+        newShortcuts.splice(fromIndex, 1);
+        
+        // toIndexを調整（fromIndexより後ろの場合）
+        const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+        
+        // アイテムを挿入
+        newShortcuts.splice(adjustedToIndex, 0, item);
+        
+        // 結果を確認
+        console.log(`[reorder] Complete: moved "${item.name}" from ${fromIndex} to ${adjustedToIndex}`);
+        console.log('[reorder] New order:', newShortcuts.map(s => s.name));
+        
+        // 新しい配列を設定
+        this.shortcuts = newShortcuts;
+        await this.save();
+        
+        // アニメーション付きで再描画
+        const grid = document.getElementById('shortcutsGrid');
+        grid.classList.add('animating');
+        this.render();
     }
 
     // 2つのショートカットからフォルダーを作成
@@ -223,23 +277,26 @@ class ShortcutManager {
         shortcut1.folderId = folderId;
         shortcut2.folderId = folderId;
         
-        // 新しい配列を作成
-        const newShortcuts = [];
-        for (let i = 0; i < this.shortcuts.length; i++) {
-            if (i === index1 || i === index2) {
-                // ドラッグされたアイテムはスキップ
-                continue;
-            }
-            newShortcuts.push(this.shortcuts[i]);
-        }
+        // 新しい配列を作成（フォルダー化する2つのアイテムを除外）
+        const newShortcuts = this.shortcuts.filter((_, i) => i !== index1 && i !== index2);
         
-        // フォルダーをindex2の位置に挿入
+        // フォルダーを適切な位置に挿入
         const insertIndex = Math.min(index1, index2);
-        newShortcuts.splice(insertIndex, 0, folderShortcut);
+        // index1とindex2より前のアイテムを除外した後のインデックスを計算
+        let adjustedInsertIndex = insertIndex;
+        if (index1 < insertIndex) adjustedInsertIndex--;
+        if (index2 < insertIndex && index2 !== index1) adjustedInsertIndex--;
         
-        // フォルダーに入れるショートカットを追加
-        newShortcuts.push(shortcut1);
-        newShortcuts.push(shortcut2);
+        console.log(`[createFolder] Inserting folder at adjusted index: ${adjustedInsertIndex}`);
+        
+        // フォルダーを挿入
+        newShortcuts.splice(adjustedInsertIndex, 0, folderShortcut);
+        
+        // フォルダーに入れるショートカットを最後に追加
+        newShortcuts.push(shortcut1, shortcut2);
+        
+        console.log(`[createFolder] New shortcuts count: ${newShortcuts.length}`);
+        console.log('[createFolder] Items:', newShortcuts.map(s => ({ name: s.name, isFolder: s.isFolder })));
         
         this.shortcuts = newShortcuts;
         
@@ -368,8 +425,18 @@ class ShortcutManager {
             url: s.url
         })));
 
-        // データの整合性チェック
-        this.shortcuts = this.shortcuts.filter(s => s && s.name && s.url);
+        // データの整合性チェック - 無効なアイテムを修復
+        this.shortcuts = this.shortcuts.map((s, idx) => {
+            if (!s) {
+                console.warn(`[render] Found null/undefined at index ${idx}, removing`);
+                return null;
+            }
+            if (!s.name || !s.url) {
+                console.warn(`[render] Invalid shortcut at index ${idx}:`, s);
+                return null;
+            }
+            return s;
+        }).filter(s => s !== null);
 
         // 検索中の場合はすべてのフォルダーを開く
         if (this.searchKeyword) {
