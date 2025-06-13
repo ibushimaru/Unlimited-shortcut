@@ -78,6 +78,15 @@ class MouseDragManager {
         this.draggedIndex = parseInt(item.dataset.index);
         this.hasMoved = false;
         
+        // インデックスの検証
+        if (isNaN(this.draggedIndex) || this.draggedIndex < 0 || 
+            this.draggedIndex >= this.shortcutManager.shortcuts.length) {
+            console.error('Invalid drag index:', this.draggedIndex, 'Total items:', this.shortcutManager.shortcuts.length);
+            this.draggedElement = null;
+            this.draggedIndex = null;
+            return;
+        }
+        
         // ドラッグ開始時の各アイテムの位置を記録
         const grid = document.getElementById('shortcutsGrid');
         if (grid) {
@@ -90,7 +99,6 @@ class MouseDragManager {
                 const itemIndex = parseInt(item.dataset.index);
                 this.originalItemPositions.set(itemIndex, index);
             });
-            console.log('[MouseDrag] Saved original positions:', Array.from(this.originalItemPositions.entries()));
         }
         
         // マウス位置を記録
@@ -295,9 +303,14 @@ class MouseDragManager {
                             const visualIndex = this.pendingInsertIndex;
                             const dataIndex = this.convertVisualIndexToDataIndex(visualIndex);
                             
-                            if (dataIndex !== this.draggedIndex) {
+                            // インデックスの範囲チェック
+                            if (dataIndex !== this.draggedIndex && 
+                                dataIndex >= 0 && 
+                                dataIndex <= this.shortcutManager.shortcuts.length) {
                                 console.log('Reordering from', this.draggedIndex, 'to', dataIndex);
                                 this.shortcutManager.reorder(this.draggedIndex, dataIndex);
+                            } else {
+                                console.warn('Invalid reorder index:', dataIndex, 'Total items:', this.shortcutManager.shortcuts.length);
                             }
                         }
                     } else if (this.currentDropMode === 'folder') {
@@ -309,7 +322,13 @@ class MouseDragManager {
                             // 両方がショートカットの場合はフォルダー作成
                             if (!draggedShortcut.isFolder && !targetShortcut.isFolder) {
                                 console.log('Creating folder from shortcuts');
-                                this.shortcutManager.createFolderFromShortcuts(this.draggedIndex, targetIndex);
+                                // インデックスの範囲チェック
+                                if (this.draggedIndex >= 0 && this.draggedIndex < this.shortcutManager.shortcuts.length &&
+                                    targetIndex >= 0 && targetIndex < this.shortcutManager.shortcuts.length) {
+                                    this.shortcutManager.createFolderFromShortcuts(this.draggedIndex, targetIndex);
+                                } else {
+                                    console.error('Invalid indices for folder creation:', this.draggedIndex, targetIndex);
+                                }
                             }
                             // フォルダーにショートカットを追加
                             else if (targetShortcut.isFolder && !draggedShortcut.isFolder) {
@@ -452,7 +471,7 @@ class MouseDragManager {
             const draggedPos = allChildren.indexOf(draggedItem);
             if (draggedPos < placeholderPos) {
                 // ドラッグアイテムがプレースホルダーより前にある場合
-                this.pendingInsertIndex = itemsBeforePlaceholder - 1;
+                this.pendingInsertIndex = Math.max(0, itemsBeforePlaceholder - 1);
             } else {
                 // ドラッグアイテムがプレースホルダーより後にある場合
                 this.pendingInsertIndex = itemsBeforePlaceholder;
@@ -461,7 +480,11 @@ class MouseDragManager {
             this.pendingInsertIndex = itemsBeforePlaceholder;
         }
         
-        console.log('Pending insert index:', this.pendingInsertIndex);
+        // インデックスの範囲を制限
+        const maxVisibleItems = shortcutItems.length;
+        this.pendingInsertIndex = Math.max(0, Math.min(this.pendingInsertIndex, maxVisibleItems));
+        
+        console.log('Pending insert index:', this.pendingInsertIndex, 'Max visible items:', maxVisibleItems);
     }
     
     convertVisualIndexToDataIndex(visualIndex) {
@@ -480,115 +503,80 @@ class MouseDragManager {
             }
         }
         
-        // 最後の位置
-        return shortcuts.length;
+        // 最後の位置を返す場合は、配列の長さ-1を上限とする
+        // ただし、最後に挿入する場合は配列の長さを返す必要がある
+        return Math.min(visualIndex, shortcuts.length);
     }
     
     moveItemsForPlaceholder(grid) {
-        // CSS Gridのレイアウト情報を取得
+        // グリッドレイアウト情報を取得
         const gridRect = grid.getBoundingClientRect();
         const gridStyle = window.getComputedStyle(grid);
-        const gap = parseInt(gridStyle.gap || gridStyle.gridGap || '16');
+        const gap = parseInt(gridStyle.gap || '16');
         const itemWidth = 112;
+        const itemHeight = 112;
+        // 動的にカラム数を計算
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
-        console.log(`[moveItems] Grid layout: columns=${columns}, gap=${gap}`);
-        console.log(`[moveItems] Pending insert index: ${this.pendingInsertIndex}`);
+        console.log(`[moveItems] Grid: columns=${columns}, gap=${gap}, draggedIndex=${this.draggedIndex}`);
         
-        // ドラッグ中アイテムの元の位置
-        const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
-        console.log(`[moveItems] Dragged item (${this.draggedIndex}) original position: ${draggedOriginalPos}`);
-        
-        // 各アイテムを処理
+        // プレースホルダーを除いた全アイテムを取得
         const items = Array.from(grid.children).filter(child => 
             child.classList.contains('shortcut-item') && 
             !child.dataset.isAddButton &&
             child !== this.placeholder
         );
         
+        // プレースホルダーの位置を取得
+        const allChildren = Array.from(grid.children);
+        const placeholderPos = allChildren.indexOf(this.placeholder);
+        
+        if (placeholderPos === -1) {
+            console.log('[moveItems] No placeholder found');
+            return;
+        }
+        
+        console.log(`[moveItems] Placeholder at position: ${placeholderPos}`);
+        
+        // 各アイテムの現在位置から目標位置を計算
         items.forEach((item) => {
             const itemIndex = parseInt(item.dataset.index);
             
-            // ドラッグ中のアイテムの処理
+            // ドラッグ中のアイテムは半透明にするだけ
             if (itemIndex === this.draggedIndex) {
-                item.style.pointerEvents = 'none';
                 item.style.opacity = '0.3';
+                item.style.pointerEvents = 'none';
                 return;
             }
             
-            // 元の位置を取得
-            const originalPosition = this.originalItemPositions.get(itemIndex);
-            if (originalPosition === undefined) {
-                console.warn(`[moveItems] No original position for item ${itemIndex}`);
-                return;
+            // 現在のDOM位置を取得
+            const currentPos = allChildren.indexOf(item);
+            
+            // プレースホルダーの影響を考慮して目標位置を計算
+            let targetPos = currentPos;
+            if (placeholderPos < currentPos) {
+                targetPos = currentPos - 1; // プレースホルダーが前にある場合、1つ前にずれる
             }
             
-            // 位置計算ロジック
-            let targetPosition = originalPosition;
-            
-            // pendingInsertIndexはドラッグアイテムが移動する先の位置
-            // 他のアイテムはそれに対応して動く
-            if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined) {
-                if (draggedOriginalPos < originalPosition && this.pendingInsertIndex > originalPosition) {
-                    // ドラッグアイテムが前から後ろへ移動し、自分を越えていく場合
-                    targetPosition = originalPosition - 1;
-                } else if (draggedOriginalPos > originalPosition && this.pendingInsertIndex <= originalPosition) {
-                    // ドラッグアイテムが後ろから前へ移動し、自分を越えていく場合
-                    targetPosition = originalPosition + 1;
-                } else if (draggedOriginalPos < originalPosition && this.pendingInsertIndex <= draggedOriginalPos) {
-                    // ドラッグアイテムが前に移動するが、自分は関係ない場合
-                    targetPosition = originalPosition - 1;
-                } else if (draggedOriginalPos > originalPosition && this.pendingInsertIndex > draggedOriginalPos) {
-                    // ドラッグアイテムが後ろに移動するが、自分は関係ない場合
-                    targetPosition = originalPosition;
-                } else {
-                    // その他の場合は位置を保持
-                    targetPosition = originalPosition;
-                }
-            }
+            // 現在と目標の行列を計算
+            const currentRow = Math.floor(currentPos / columns);
+            const currentCol = currentPos % columns;
+            const targetRow = Math.floor(targetPos / columns);
+            const targetCol = targetPos % columns;
             
             // 移動量を計算
-            const oldRow = Math.floor(originalPosition / columns);
-            const oldCol = originalPosition % columns;
-            const newRow = Math.floor(targetPosition / columns);
-            const newCol = targetPosition % columns;
+            const deltaX = (targetCol - currentCol) * (itemWidth + gap);
+            const deltaY = (targetRow - currentRow) * (itemHeight + gap);
             
-            let deltaX = (newCol - oldCol) * (itemWidth + gap);
-            let deltaY = (newRow - oldRow) * (itemWidth + gap);
-            
-            if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-                console.log(`[moveItems] Item ${itemIndex}: pos ${originalPosition}->${targetPosition}, row(${oldRow}->${newRow}), col(${oldCol}->${newCol}), delta(${deltaX},${deltaY})`);
-                
-                // 異常な移動をデバッグ
-                if (Math.abs(deltaX) > 300 || Math.abs(deltaY) > 300) {
-                    console.warn(`[moveItems] WARNING: Large movement detected for item ${itemIndex}!`);
-                    console.warn(`  Original: row=${oldRow}, col=${oldCol}`);
-                    console.warn(`  Target: row=${newRow}, col=${newCol}`);
-                    console.warn(`  Pending insert index: ${this.pendingInsertIndex}`);
-                    console.warn(`  Dragged original pos: ${draggedOriginalPos}`);
-                    console.warn(`  Item original pos: ${originalPosition}`);
-                    
-                    // エラー修正：異常な移動を防ぐ
-                    const maxMove = 2; // 最大で2ポジションまでの移動に制限
-                    if (Math.abs(targetPosition - originalPosition) > maxMove) {
-                        console.error(`[moveItems] Movement too large, limiting to ${maxMove} positions`);
-                        targetPosition = originalPosition + (targetPosition > originalPosition ? maxMove : -maxMove);
-                        
-                        // 再計算
-                        const limitedNewRow = Math.floor(targetPosition / columns);
-                        const limitedNewCol = targetPosition % columns;
-                        const limitedDeltaX = (limitedNewCol - oldCol) * (itemWidth + gap);
-                        const limitedDeltaY = (limitedNewRow - oldRow) * (itemWidth + gap);
-                        
-                        deltaX = limitedDeltaX;
-                        deltaY = limitedDeltaY;
-                    }
-                }
+            if (deltaX !== 0 || deltaY !== 0) {
+                console.log(`[moveItems] Item ${itemIndex}: currentPos=${currentPos}, targetPos=${targetPos}, ` +
+                    `row(${currentRow}->${targetRow}), col(${currentCol}->${targetCol}), ` +
+                    `delta(${deltaX}, ${deltaY})`);
             }
             
-            // アニメーション適用
+            // アニメーションを適用
             if (deltaX !== 0 || deltaY !== 0) {
-                item.style.transition = 'transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)';
+                item.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
                 item.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
             } else {
                 item.style.transform = '';
@@ -635,6 +623,8 @@ class MouseDragManager {
     }
 
     cleanup() {
+        console.log('[MouseDrag] Cleanup called - draggedIndex:', this.draggedIndex);
+        
         // クローンを削除
         if (this.dragClone && this.dragClone.parentNode) {
             this.dragClone.parentNode.removeChild(this.dragClone);
