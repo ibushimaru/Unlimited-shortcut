@@ -541,7 +541,6 @@ class MouseDragManager {
         // ビジュアルインデックス（表示位置）をデータインデックス（shortcuts配列の位置）に変換
         const shortcuts = this.shortcutManager.shortcuts;
         let visibleCount = 0;
-        let debugInfo = { visible: [], hidden: [] };
         let draggedItemVisualIndex = -1;
         
         // まず、ドラッグ中のアイテムの視覚的位置を見つける
@@ -557,42 +556,58 @@ class MouseDragManager {
             }
         }
         
-        // 視覚的インデックスをデータインデックスに変換
-        for (let i = 0; i < shortcuts.length; i++) {
-            const shortcut = shortcuts[i];
-            // 表示されるアイテムのみカウント（フォルダー内のアイテムは除外）
-            if (!shortcut.folderId || shortcut.isFolder) {
-                debugInfo.visible.push({ index: i, name: shortcut.name, isDragged: i === this.draggedIndex });
-                
-                // ドラッグ中のアイテムより前に挿入する場合
-                if (draggedItemVisualIndex > visualIndex && visibleCount === visualIndex) {
-                    console.log(`[convertVisualToData] Visual ${visualIndex} → Data ${i} (before dragged item)`);
-                    console.log(`[convertVisualToData] Dragged item visual index: ${draggedItemVisualIndex}`);
-                    return i;
-                }
-                // ドラッグ中のアイテムより後に挿入する場合
-                else if (draggedItemVisualIndex <= visualIndex) {
-                    // ドラッグ中のアイテムをスキップしてカウント
-                    if (i !== this.draggedIndex && visibleCount === visualIndex) {
-                        console.log(`[convertVisualToData] Visual ${visualIndex} → Data ${i} (after dragged item)`);
-                        console.log(`[convertVisualToData] Dragged item visual index: ${draggedItemVisualIndex}`);
-                        return i;
+        console.log(`[convertVisualToData] Target visual index: ${visualIndex}, Dragged item visual index: ${draggedItemVisualIndex}`);
+        
+        // 左から右へのドラッグの場合（ドラッグアイテムが前にある）
+        if (draggedItemVisualIndex < visualIndex) {
+            // ドラッグアイテムを除外してカウントするため、視覚インデックスを1減らす
+            const adjustedVisualIndex = visualIndex - 1;
+            visibleCount = 0;
+            
+            for (let i = 0; i < shortcuts.length; i++) {
+                const shortcut = shortcuts[i];
+                if (!shortcut.folderId || shortcut.isFolder) {
+                    // ドラッグ中のアイテムはスキップ
+                    if (i === this.draggedIndex) {
+                        continue;
                     }
-                }
-                
-                if (i !== this.draggedIndex) {
+                    
+                    if (visibleCount === adjustedVisualIndex) {
+                        console.log(`[convertVisualToData] Left-to-right: Visual ${visualIndex} → Data ${i + 1} (insert after index ${i})`);
+                        return i + 1; // このアイテムの後に挿入
+                    }
                     visibleCount++;
                 }
-            } else {
-                debugInfo.hidden.push({ index: i, name: shortcut.name, folderId: shortcut.folderId });
             }
+        }
+        // 右から左へのドラッグの場合（ドラッグアイテムが後にある）
+        else if (draggedItemVisualIndex > visualIndex) {
+            visibleCount = 0;
+            
+            for (let i = 0; i < shortcuts.length; i++) {
+                const shortcut = shortcuts[i];
+                if (!shortcut.folderId || shortcut.isFolder) {
+                    if (visibleCount === visualIndex) {
+                        console.log(`[convertVisualToData] Right-to-left: Visual ${visualIndex} → Data ${i}`);
+                        return i;
+                    }
+                    
+                    // ドラッグ中のアイテムはカウントしない
+                    if (i !== this.draggedIndex) {
+                        visibleCount++;
+                    }
+                }
+            }
+        }
+        // 同じ位置の場合
+        else {
+            console.log(`[convertVisualToData] Same position: returning dragged index ${this.draggedIndex}`);
+            return this.draggedIndex;
         }
         
         // 最後の位置を返す場合
-        const result = shortcuts.length;
-        console.log(`[convertVisualToData] Visual ${visualIndex} → Data ${result} (end of list)`);
-        console.log(`[convertVisualToData] Total: ${shortcuts.length}, Visible: ${visibleCount}, Hidden: ${debugInfo.hidden.length}`);
-        return result;
+        console.log(`[convertVisualToData] Visual ${visualIndex} → Data ${shortcuts.length} (end of list)`);
+        return shortcuts.length;
     }
     
     moveItemsForPlaceholder(grid) {
