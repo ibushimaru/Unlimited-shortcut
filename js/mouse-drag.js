@@ -68,10 +68,6 @@ class MouseDragManager {
             return;
         }
         
-        // 範囲選択マネージャーが範囲選択モードの場合は処理しない
-        if (window.rangeSelectionManager && window.rangeSelectionManager.isInRangeSelectionMode()) {
-            return;
-        }
 
         // ドラッグの準備だけ行い、実際のドラッグはまだ開始しない
         this.draggedElement = item;

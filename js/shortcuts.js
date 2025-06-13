@@ -1228,11 +1228,7 @@ class ShortcutManager {
 // グローバル変数として初期化
 window.shortcutManager = new ShortcutManager();
 
-// 範囲選択マネージャーの初期化
-if (window.RangeSelectionManager) {
-    window.rangeSelectionManager = new RangeSelectionManager(window.shortcutManager);
-    window.rangeSelectionManager.init();
-}
+// 範囲選択機能は削除（バグを誘発するため）
 
 // ドラッグイベントのデバッグ関数
 window.debugDragEvents = function() {
