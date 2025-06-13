@@ -601,11 +601,9 @@ class MouseDragManager {
                             console.log(`[convertVisualToData] Left-to-right calculation:`);
                             console.log(`  - Visual index: ${visualIndex}`);
                             console.log(`  - Current data index (i): ${i}`);
-                            console.log(`  - Will return: ${i + 2} (i + 2 to fix off-by-one)`);
-                            console.log(`  - Note: reorder will apply -1 adjustment for left-to-right`);
-                            // 「1つ若い場所に挿入される」問題を修正するため、+2を返す
-                            // (reorderで-1されるので、結果的に+1になる)
-                            const result = i + 2;
+                            console.log(`  - Will return: ${i + 1} (i + 1 for proper placement)`);
+                            // 左から右へのドラッグ時は i + 1 を返す
+                            const result = i + 1;
                             // 最大値を超えないように制限
                             return Math.min(result, this.shortcutManager.shortcuts.length);
                         }
