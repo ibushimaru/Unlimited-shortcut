@@ -357,6 +357,13 @@ body {
     opacity: 0.5;
 }
 
+/* ドラッグ中の元のアイテム（グリッドスペースを保持） */
+.dragging-original {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
 .drag-over {
     background-color: #e8f0fe;
     transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -419,16 +426,30 @@ body {
     transition: transform 0.3s ease;
 }
 
-/* ドロップゾーン（移動先の位置） */
-.shortcut-placeholder.drop-zone {
-    background-color: transparent;
-    border: 2px solid #1a73e8;
+/* プレースホルダー（ドラッグ中のアイテムの代わり） */
+.shortcut-placeholder {
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 2px dashed #ccc;
     border-radius: 8px;
     box-sizing: border-box;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s ease;
+    /* サイズを明示的に設定 */
+    width: 112px !important;
+    height: 112px !important;
+    flex-shrink: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ドロップゾーン（移動先の位置） */
+.shortcut-placeholder.drop-zone {
+    background-color: transparent;
+    border: 2px solid #1a73e8;
+    border-radius: 8px;
     animation: fadeIn 0.4s ease-out;
     opacity: 0.8;
 }

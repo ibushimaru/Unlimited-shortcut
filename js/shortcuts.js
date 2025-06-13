@@ -408,6 +408,10 @@ class ShortcutManager {
         const folder = this.shortcuts.find(s => s.isFolder && s.folderId === folderId);
         if (folder && window.openFolderModal) {
             window.openFolderModal(folderId, folder.name);
+        } else {
+            console.error('Folder not found:', folderId);
+            // フォルダーが見つからない場合、グリッドを再描画
+            this.render();
         }
     }
 
@@ -560,6 +564,14 @@ class ShortcutManager {
             grid.appendChild(item);
         });
 
+        // 最後のアイテムと追加ボタンの間にスペーサーを追加
+        const spacer = document.createElement('div');
+        spacer.className = 'grid-spacer';
+        spacer.style.width = '112px';
+        spacer.style.height = '112px';
+        spacer.style.visibility = 'hidden'; // スペースは占有するが見えない
+        grid.appendChild(spacer);
+        
         // 追加ボタンを最後に追加（必ず最後になるように）
         const addButton = document.createElement('div');
         addButton.className = 'add-shortcut';
@@ -891,6 +903,16 @@ class ShortcutManager {
                 if (folderIndex !== -1) {
                     this.shortcuts.splice(folderIndex, 1);
                     console.log('Folder removed at index:', folderIndex);
+                    
+                    // フォルダーが削除された場合、開いているモーダルを閉じる
+                    const openModal = document.getElementById('folderModal');
+                    if (openModal && openModal.classList.contains('show') && 
+                        openModal.dataset.folderId === oldFolderId) {
+                        console.log('Closing modal for deleted folder');
+                        if (window.closeFolderModal) {
+                            window.closeFolderModal();
+                        }
+                    }
                 }
             }
             
