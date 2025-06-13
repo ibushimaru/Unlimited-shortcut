@@ -1,3 +1,15 @@
+// フォーカスをデバッグする関数
+function debugFocus() {
+    const activeElement = document.activeElement;
+    console.log('Active element:', activeElement);
+    console.log('Tag:', activeElement.tagName);
+    console.log('Class:', activeElement.className);
+    console.log('ID:', activeElement.id);
+    console.log('ContentEditable:', activeElement.contentEditable);
+}
+
+// 自動フォーカス解除は削除 - 検索バーの使用を妨げるため
+
 // DOM要素の取得
 const elements = {
     modal: document.getElementById('shortcutModal'),
@@ -95,12 +107,51 @@ function setupEventListeners() {
 
 // 検索バーの設定
 function setupSearchBar() {
-    // 検索バーにフォーカス
+    // 検索バーに初期フォーカス
     elements.searchInput.focus();
 
     // 検索候補の表示（オプション）
     elements.searchInput.addEventListener('input', (e) => {
         // 将来的に検索候補を表示する機能を追加可能
+    });
+    
+    // 検索バー内でのクリックイベントの伝播を止める
+    elements.searchInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
+    // 検索バー以外をクリックしたらフォーカスを外す
+    document.addEventListener('click', (e) => {
+        // 検索バーまたはその親要素でなければフォーカスを外す
+        if (!elements.searchInput.contains(e.target) && 
+            !e.target.closest('.search-container')) {
+            elements.searchInput.blur();
+        }
+        
+        // ショートカット検索バーも同様に処理
+        const shortcutSearchInput = document.getElementById('shortcutSearch');
+        if (shortcutSearchInput && !shortcutSearchInput.contains(e.target) && 
+            e.target !== shortcutSearchInput && 
+            !e.target.closest('.shortcuts-controls')) {
+            shortcutSearchInput.blur();
+        }
+        
+        // contenteditable要素以外をクリックしたら、すべてのcontenteditable要素からフォーカスを外す
+        if (!e.target.hasAttribute('contenteditable') && !e.target.closest('[contenteditable="true"]')) {
+            const editableElements = document.querySelectorAll('[contenteditable="true"]');
+            editableElements.forEach(el => {
+                el.blur();
+                el.contentEditable = 'false';
+            });
+        }
+    });
+    
+    // 検索バーのEnterキーでGoogle検索を実行
+    elements.searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && elements.searchInput.value.trim()) {
+            const query = encodeURIComponent(elements.searchInput.value.trim());
+            window.location.href = `https://www.google.com/search?q=${query}`;
+        }
     });
 }
 
@@ -235,22 +286,20 @@ function setupFolderModal() {
     let originalFolderName = '';
     let currentFolderId = null;
     
-    // フォルダータイトルのクリックで編集モードに入る
+    // フォルダー名をクリックした時だけ編集可能にする
     elements.folderModalTitle.addEventListener('click', (e) => {
-        // すでに編集中でない場合のみフォーカスを設定
-        if (document.activeElement !== e.target) {
-            originalFolderName = e.target.textContent;
-            currentFolderId = elements.folderModal.dataset.folderId;
-            
-            // フォーカスを設定してテキストを選択
-            e.target.focus();
-            const selection = window.getSelection();
-            const range = document.createRange();
-            range.selectNodeContents(e.target);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
+        e.stopPropagation();
+        elements.folderModalTitle.contentEditable = 'true';
+        elements.folderModalTitle.focus();
+        // テキスト全体を選択
+        const range = document.createRange();
+        range.selectNodeContents(elements.folderModalTitle);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
     });
+    
+    // 既存のクリックイベントと統合済み（上記のイベントリスナーで処理）
     
     elements.folderModalTitle.addEventListener('focus', (e) => {
         // フォーカス時の処理（クリック以外でフォーカスされた場合）
@@ -259,6 +308,8 @@ function setupFolderModal() {
     });
     
     elements.folderModalTitle.addEventListener('blur', async (e) => {
+        // contentEditableをfalseに戻す
+        elements.folderModalTitle.contentEditable = 'false';
         const newName = e.target.textContent.trim();
         if (newName && newName !== originalFolderName && currentFolderId) {
             // フォルダーを検索して名前を更新
@@ -293,6 +344,18 @@ window.openFolderModal = function(folderId, folderName) {
     elements.folderModalTitle.textContent = folderName;
     elements.folderModal.classList.add('show');
     elements.folderModal.dataset.folderId = folderId;
+    
+    // フォルダー名からフォーカスを外し、編集不可にする
+    elements.folderModalTitle.blur();
+    elements.folderModalTitle.contentEditable = 'false';
+    
+    // カーソルが表示されないように、確実にフォーカスを外す
+    setTimeout(() => {
+        if (document.activeElement === elements.folderModalTitle) {
+            elements.folderModalTitle.blur();
+            document.body.focus(); // bodyにフォーカスを移動
+        }
+    }, 0);
     
     // フォルダー内のショートカットを表示
     const grid = elements.folderModalGrid;
@@ -349,6 +412,10 @@ window.updateFolderModalContent = function(folderId, folderName) {
     }
     
     elements.folderModalTitle.textContent = folderName;
+    
+    // フォルダー名からフォーカスを外し、編集不可にする
+    elements.folderModalTitle.blur();
+    elements.folderModalTitle.contentEditable = 'false';
     
     // フォルダー内のショートカットを表示
     const grid = elements.folderModalGrid;
@@ -581,9 +648,17 @@ function setupModalDragOut(folderId) {
 // フォルダーモーダルを閉じる
 function closeFolderModal() {
     elements.folderModal.classList.remove('show');
+    // contentEditableをfalseに戻し、フォーカスを外す
+    elements.folderModalTitle.contentEditable = 'false';
+    elements.folderModalTitle.blur();
     // ドラッグハンドラーをクリーンアップ
     if (window.cleanupModalDragHandlers) {
         window.cleanupModalDragHandlers();
+    }
+    // ドラッグアウトインジケーターを削除
+    const dragOutIndicator = document.querySelector('.drag-out-indicator');
+    if (dragOutIndicator) {
+        dragOutIndicator.remove();
     }
 }
 
@@ -593,6 +668,11 @@ window.closeFolderModal = closeFolderModal;
 // ショートカット検索の設定
 function setupShortcutSearch() {
     let debounceTimer;
+    
+    // ショートカット検索バー内でのクリックイベントの伝播を止める
+    elements.shortcutSearch.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
     
     elements.shortcutSearch.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
@@ -610,6 +690,13 @@ function setupShortcutSearch() {
             e.target.blur();
         }
     });
+    
+    // ページロード時に誤ってフォーカスが残っている場合の対策
+    setTimeout(() => {
+        if (document.activeElement === elements.shortcutSearch) {
+            elements.shortcutSearch.blur();
+        }
+    }, 100);
 }
 
 // ダークモードの設定

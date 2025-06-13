@@ -16,6 +16,49 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
+/* カーソル制御をシンプルに整理 */
+/* すべてのcontenteditable要素のカーソルをデフォルトで非表示 */
+[contenteditable] {
+    caret-color: transparent !important;
+}
+
+/* contenteditable="true"でフォーカスされた時のみカーソル表示 */
+[contenteditable="true"]:focus {
+    caret-color: auto !important;
+}
+
+/* ショートカット検索バーのカーソル制御 */
+.shortcut-search {
+    caret-color: transparent !important;
+}
+
+.shortcut-search:focus {
+    caret-color: auto !important;
+}
+
+/* メイン検索バーは常にカーソル表示可能 */
+.search-input {
+    caret-color: auto !important;
+}
+
+/* contenteditable要素のカーソルを制御 */
+[contenteditable="false"] {
+    caret-color: transparent !important;
+    user-select: none;
+    cursor: pointer;
+}
+
+/* 検索バー以外のフォーカスアウトラインを非表示 */
+*:not(.search-input):focus {
+    outline: none;
+}
+
+/* 検索バーのフォーカス時のアウトライン */
+.search-input:focus {
+    outline: 2px solid #1a73e8;
+    outline-offset: -2px;
+}
+
 /* 検索バー */
 .search-container {
     margin-top: 120px;
@@ -250,20 +293,16 @@ body {
     pointer-events: auto; /* Re-enable interaction when shown */
 }
 
-/* ドラッグ中はモーダルの位置を固定 */
-body.dragging .modal {
-    transform: none !important;
+/* ドラッグ中はモーダルのアニメーションを無効化（位置は変更しない） */
+body.dragging #folderModal {
     transition: none !important;
 }
 
-body.dragging .modal * {
-    transform: none !important;
+body.dragging .folder-modal-content {
     transition: none !important;
 }
 
-#folderModal.modal-drag-out {
-    background-color: rgba(0, 0, 0, 0.3);
-}
+/* modal-drag-outクラスは使用しない - 代わりに別要素でインジケーターを表示 */
 
 .modal-content {
     background-color: #fff;
@@ -368,9 +407,9 @@ body.dragging .modal * {
     background-color: #f1f3f4;
 }
 
-/* ドラッグ中のスタイル */
+/* ドラッグ中のスタイル - 透明度を変更しない */
 .dragging {
-    opacity: 0.5;
+    /* opacity: 0.5; - 削除：画面が明るく見える原因 */
 }
 
 /* ボディのドラッグ中状態 - 背景色が変わらないように */
@@ -1021,20 +1060,24 @@ body.dark-mode .folder-select:focus {
     position: relative;
     z-index: 1001;
     transition: none !important;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* ドラッグ中はモーダルの位置を完全に固定 */
-body.dragging .folder-modal-content {
-    transform: none !important;
-    margin-top: 0 !important;
-    top: auto !important;
-}
 
 .folder-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    caret-color: transparent !important;
+}
+
+/* フォルダーヘッダー内のすべての要素でカーソルを非表示 */
+.folder-modal-header * {
+    caret-color: transparent !important;
 }
 
 .folder-modal-header h2 {
@@ -1048,6 +1091,12 @@ body.dragging .folder-modal-content {
     transition: border-color 0.2s, background-color 0.2s;
     cursor: text;
     outline: none;
+    caret-color: transparent !important;
+}
+
+/* フォルダータイトルが編集可能でフォーカスされた時のみカーソル表示 */
+.folder-title-editable[contenteditable="true"]:focus {
+    caret-color: auto !important;
 }
 
 .folder-title-editable:hover {
@@ -1075,6 +1124,8 @@ body.dragging .folder-modal-content {
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
+    caret-color: transparent !important;
+    user-select: none;
 }
 
 .folder-close-btn:hover {
@@ -1117,14 +1168,10 @@ body.dragging .folder-modal-content {
     margin: -10px;
 }
 
-/* フォルダーモーダルからドラッグアウト時の視覚的フィードバック */
-.modal.modal-drag-out {
-    position: relative;
-}
+/* modal-drag-outクラスは使用しない */
 
-/* フルスクリーンのドラッグアウトインジケーター */
-.modal.modal-drag-out::before {
-    content: '';
+/* フルスクリーンのドラッグアウトインジケーター - 別の要素を作成してbodyに追加する方式に変更 */
+.drag-out-indicator {
     position: fixed;
     top: 0;
     left: 0;
@@ -1140,24 +1187,8 @@ body.dragging .folder-modal-content {
     z-index: 999;
 }
 
-/* ドラッグアウト時の追加メッセージ */
-.modal.modal-drag-out::after {
-    content: 'Drop here to move out of folder';
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 24px;
-    font-weight: 500;
-    color: #1a73e8;
-    background-color: rgba(255, 255, 255, 0.95);
-    padding: 20px 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    pointer-events: none;
-    z-index: 1002;
-    animation: fadeInScale 0.3s ease-out;
-}
+/* modal-drag-outクラスは使用しない */
+
 
 @keyframes fadeInScale {
     from {
@@ -1199,6 +1230,8 @@ body.dark-mode .folder-modal-content {
     background-color: #303134;
 }
 
+/* modal-drag-outクラスは使用しない */
+
 body.dark-mode .folder-close-btn {
     color: #e8eaed;
 }
@@ -1221,13 +1254,8 @@ body.dark-mode .folder-title-editable:focus {
     border-color: #8ab4f8;
 }
 
-/* ダークモード - モーダルドラッグアウト */
-body.dark-mode .modal.modal-drag-out::before {
+/* ダークモード - ドラッグアウトインジケーター */
+body.dark-mode .drag-out-indicator {
     background-color: rgba(138, 180, 248, 0.1);
     border-color: #8ab4f8;
-}
-
-body.dark-mode .modal.modal-drag-out::after {
-    color: #8ab4f8;
-    background-color: rgba(32, 33, 36, 0.95);
 }

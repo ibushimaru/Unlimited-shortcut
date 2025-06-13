@@ -60,6 +60,12 @@ class MouseDragManager {
             return;
         }
         
+        // 検索バー内でのドラッグは無視
+        if (e.target.classList.contains('search-input') || 
+            e.target.closest('.search-container')) {
+            return;
+        }
+        
         // ドラッグが無効化されている場合は処理しない
         if (this.isDisabled) {
             return;
@@ -927,17 +933,28 @@ class MouseDragManager {
             }
         });
         
+        // ドラッグアウトインジケーターを削除
+        if (this.dragOutIndicator) {
+            this.dragOutIndicator.remove();
+            this.dragOutIndicator = null;
+        }
+        
         // 状態をリセット
         this.draggedElement = null;
         this.draggedIndex = null;
         this.placeholder = null;
         this.dragClone = null;
         this.isDragging = false;
+        this.hasMoved = false; // クリック可能にするためリセット
         this.currentDropMode = null;
         this.originalItemPositions.clear();
         
         // ドラッグ中のクラスを削除
         document.body.classList.remove('dragging');
+        
+        // contenteditable要素からフォーカスを外す（検索バーは除外）
+        const editableElements = document.querySelectorAll('[contenteditable="true"]');
+        editableElements.forEach(el => el.blur());
     }
     
     cleanup() {
@@ -1001,12 +1018,7 @@ class MouseDragManager {
             }
         });
 
-        // ドラッグ後のクリックを防ぐため、少し遅延してからフラグをリセット
-        if (this.hasMoved) {
-            setTimeout(() => {
-                this.hasMoved = false;
-            }, 100);
-        }
+        // hasMoved状態は即座にリセット（下記の状態リセットで処理される）
 
         // 状態をリセット
         this.draggedElement = null;
@@ -1014,11 +1026,16 @@ class MouseDragManager {
         this.placeholder = null;
         this.dragClone = null;
         this.isDragging = false;
+        this.hasMoved = false; // クリック可能にするためリセット
         this.currentDropMode = null;
         this.originalItemPositions.clear();
         
         // ドラッグ中のクラスを削除
         document.body.classList.remove('dragging');
+        
+        // contenteditable要素からフォーカスを外す（検索バーは除外）
+        const editableElements = document.querySelectorAll('[contenteditable="true"]');
+        editableElements.forEach(el => el.blur());
     }
     
     cancelDrag() {
@@ -1140,12 +1157,21 @@ class FolderMouseDragManager extends MouseDragManager {
             // モーダルコンテンツの外にドラッグしている場合
             // elementBelowがnullの場合も含む（画面外など）
             if (!elementBelow || !modalContent.contains(elementBelow)) {
-                modal.classList.add('modal-drag-out');
+                // ドラッグアウトインジケーターを作成
+                if (!this.dragOutIndicator) {
+                    this.dragOutIndicator = document.createElement('div');
+                    this.dragOutIndicator.className = 'drag-out-indicator';
+                    document.body.appendChild(this.dragOutIndicator);
+                }
                 this.currentDropMode = 'drag-out';
                 this.clearHoverEffects();
                 this.hideInsertMarker();
             } else {
-                modal.classList.remove('modal-drag-out');
+                // ドラッグアウトインジケーターを削除
+                if (this.dragOutIndicator) {
+                    this.dragOutIndicator.remove();
+                    this.dragOutIndicator = null;
+                }
                 
                 // フォルダー内でのホバー処理
                 if (elementBelow && this.modalGrid && this.modalGrid.contains(elementBelow)) {
@@ -1270,7 +1296,7 @@ class FolderMouseDragManager extends MouseDragManager {
                         this.shortcutManager.render({ skipAnimation: true });
                     }, 50);
                 });
-                modal.classList.remove('modal-drag-out');
+                // ドラッグアウトインジケーターは親クラスのcleanupで削除される
                 this.cleanup();
                 return;
             }
