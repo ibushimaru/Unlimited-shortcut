@@ -148,9 +148,20 @@ class MouseDragManager {
                 this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
                 this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
                 
-                // 元の要素を完全に隠す（スペースを詰める）
-                this.draggedElement.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                this.draggedElement.style.display = 'none';
+                // 元の要素を完全に隠す（グリッドから除外）
+                this.draggedElement.classList.add('drag-source');
+                this.draggedElement.style.position = 'absolute';
+                this.draggedElement.style.left = '-9999px';
+                this.draggedElement.style.transition = 'none';
+                
+                // グリッドを更新して即座にスペースを詰める
+                const grid = document.getElementById('shortcutsGrid');
+                if (grid) {
+                    // 強制的にレイアウトを再計算
+                    grid.style.display = 'none';
+                    grid.offsetHeight; // リフローを強制
+                    grid.style.display = '';
+                }
                 
                 console.log('Drag started after threshold');
             }
@@ -678,9 +689,8 @@ class MouseDragManager {
             
             const itemDataIndex = parseInt(item.dataset.index);
             
-            // ドラッグ中のアイテムは完全に隠す（スペースを詰める）
+            // ドラッグ中のアイテムはスキップ（すでに隠されている）
             if (itemDataIndex === this.draggedIndex) {
-                item.style.display = 'none';
                 return;
             }
             
@@ -691,13 +701,12 @@ class MouseDragManager {
             // 移動方向を決定する新しいロジック
             let targetPosition = visualIndex;
             
-            // 新しい移動ロジック：ドラッグ中のアイテムが隠れてスペースが詰まることを考慮
-            // 単純にプレースホルダーの位置に基づいて移動
+            // シンプルな移動ロジック：プレースホルダーの位置のみで判定
+            // ドラッグ中のアイテムはすでにグリッドから除外されている
             
             if (visualIndex >= placeholderIndex) {
                 // プレースホルダー以降のアイテムは右に移動
                 targetPosition = visualIndex + 1;
-                // console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves right to ${targetPosition}`);
             } else {
                 // プレースホルダーより前のアイテムは移動しない
                 targetPosition = visualIndex;
@@ -734,8 +743,10 @@ class MouseDragManager {
                 item.style.transitionDelay = '';
                 item.style.pointerEvents = '';
                 item.classList.remove('moving');
+                item.classList.remove('drag-source');
                 // 表示状態と透明度をリセット
-                item.style.display = '';
+                item.style.position = '';
+                item.style.left = '';
                 item.style.opacity = '';
                 
                 // アニメーション完了後にトランジションをクリア
@@ -771,8 +782,10 @@ class MouseDragManager {
         
         if (this.draggedElement) {
             // 元の要素を表示に戻す
-            this.draggedElement.style.transition = 'opacity 0.3s ease';
-            this.draggedElement.style.display = '';
+            this.draggedElement.classList.remove('drag-source');
+            this.draggedElement.style.position = '';
+            this.draggedElement.style.left = '';
+            this.draggedElement.style.transition = '';
             this.draggedElement.style.opacity = '1';
         }
 
