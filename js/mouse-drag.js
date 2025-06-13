@@ -351,7 +351,9 @@ class MouseDragManager {
                                 dataIndex,
                                 draggedIndex: this.draggedIndex,
                                 totalItems: this.shortcutManager.shortcuts.length,
-                                valid: dataIndex >= 0 && dataIndex <= this.shortcutManager.shortcuts.length
+                                valid: dataIndex >= 0 && dataIndex <= this.shortcutManager.shortcuts.length,
+                                dataIndexType: typeof dataIndex,
+                                draggedIndexType: typeof this.draggedIndex
                             });
                             
                             // インデックスの範囲チェック
@@ -370,6 +372,15 @@ class MouseDragManager {
                                 this.cleanupHandled = true;
                             } else {
                                 console.warn('Invalid reorder index:', dataIndex, 'Total items:', this.shortcutManager.shortcuts.length);
+                                console.warn('Validation details:', {
+                                    'dataIndex !== this.draggedIndex': dataIndex !== this.draggedIndex,
+                                    'dataIndex >= 0': dataIndex >= 0,
+                                    'dataIndex <= length': dataIndex <= this.shortcutManager.shortcuts.length,
+                                    'draggedIndex >= 0': this.draggedIndex >= 0,
+                                    'draggedIndex < length': this.draggedIndex < this.shortcutManager.shortcuts.length,
+                                    'draggedIndex': this.draggedIndex,
+                                    'dataIndex': dataIndex
+                                });
                             }
                         }
                     } else if (this.currentDropMode === 'folder') {
@@ -554,6 +565,12 @@ class MouseDragManager {
         let visibleCount = 0;
         let draggedItemVisualIndex = -1;
         
+        // 入力検証
+        if (visualIndex === null || visualIndex === undefined || isNaN(visualIndex) || visualIndex < 0) {
+            console.error(`[convertVisualToData] Invalid visual index: ${visualIndex}`);
+            return this.draggedIndex; // 安全なデフォルト値を返す
+        }
+        
         // まず、ドラッグ中のアイテムの視覚的位置を見つける
         let tempVisibleCount = 0;
         for (let i = 0; i < shortcuts.length; i++) {
@@ -597,6 +614,9 @@ class MouseDragManager {
                     }
                 }
             }
+            // ループ内で見つからなかった場合（最後の位置）
+            console.log(`[convertVisualToData] Left-to-right: not found in loop, returning end position`);
+            return shortcuts.length;
         }
         // 右から左へのドラッグの場合（ドラッグアイテムが後にある）
         else if (draggedItemVisualIndex > visualIndex) {
@@ -616,6 +636,9 @@ class MouseDragManager {
                     }
                 }
             }
+            // ループ内で見つからなかった場合
+            console.log(`[convertVisualToData] Right-to-left: not found in loop, returning 0`);
+            return 0;
         }
         // 同じ位置の場合
         else {
