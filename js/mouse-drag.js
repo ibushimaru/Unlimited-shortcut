@@ -137,14 +137,14 @@ class MouseDragManager {
                 // クローン要素を作成してドラッグ（元の要素は位置を保持）
                 if (!this.dragClone) {
                     this.dragClone = this.draggedElement.cloneNode(true);
-                    this.dragClone.style.transition = 'opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease';
+                    this.dragClone.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                     this.dragClone.style.position = 'fixed';
                     this.dragClone.style.zIndex = '9999';
-                    this.dragClone.style.opacity = '0.7';
+                    this.dragClone.style.opacity = '0.85';
                     this.dragClone.style.cursor = 'grabbing';
                     this.dragClone.style.pointerEvents = 'none';
-                    this.dragClone.style.transform = 'scale(1.02)';
-                    this.dragClone.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+                    this.dragClone.style.transform = 'scale(1.05)';
+                    this.dragClone.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
                     document.body.appendChild(this.dragClone);
                 }
                 
@@ -152,8 +152,9 @@ class MouseDragManager {
                 this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
                 this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
                 
-                // 元の要素を半透明に
-                this.draggedElement.style.opacity = '0.3';
+                // 元の要素を半透明に（アニメーション付き）
+                this.draggedElement.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                this.draggedElement.style.opacity = '0.2';
                 
                 console.log('Drag started after threshold');
             }
@@ -682,10 +683,19 @@ class MouseDragManager {
             
             // アニメーションを適用
             if (deltaX !== 0 || deltaY !== 0) {
-                item.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
+                // より滑らかなスプリング効果のあるイージング
+                // cubic-bezier(0.34, 1.56, 0.64, 1) - バウンス効果あり
+                // cubic-bezier(0.25, 0.46, 0.45, 0.94) - スムーズなイーズアウト
+                // cubic-bezier(0.68, -0.55, 0.265, 1.55) - 弾性効果
+                item.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 item.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                
+                // 遅延を追加してより自然な動きに
+                const delay = visualIndex * 0.01; // 各アイテムに微小な遅延
+                item.style.transitionDelay = `${delay}s`;
             } else {
                 item.style.transform = '';
+                item.style.transitionDelay = '';
             }
         });
     }
@@ -696,9 +706,10 @@ class MouseDragManager {
         if (grid) {
             const items = grid.querySelectorAll('.shortcut-item');
             items.forEach(item => {
-                // トランジションを一時的に無効化してリセット
-                item.style.transition = 'none';
+                // スムーズなリセットアニメーション
+                item.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 item.style.transform = '';
+                item.style.transitionDelay = '';
                 item.style.pointerEvents = '';
                 item.classList.remove('moving');
                 // 透明度は元の要素のみリセット（クローンとは別）
@@ -706,10 +717,10 @@ class MouseDragManager {
                     item.style.opacity = '';
                 }
                 
-                // 次のフレームでトランジションを再有効化
-                requestAnimationFrame(() => {
+                // アニメーション完了後にトランジションをクリア
+                setTimeout(() => {
                     item.style.transition = '';
-                });
+                }, 300);
             });
         }
         
