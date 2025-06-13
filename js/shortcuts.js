@@ -612,13 +612,7 @@ class ShortcutManager {
         name.textContent = shortcut.name;
         name.draggable = false; // 名前のドラッグを無効化
         
-        // フォルダーの場合はダブルクリックで名前を編集可能に
-        if (shortcut.isFolder) {
-            name.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this.enableInlineEdit(name, shortcut, index);
-            });
-        }
+        // ダブルクリック名前編集機能は削除（ユーザーのリクエストにより）
 
         item.appendChild(icon);
         item.appendChild(name);
@@ -786,14 +780,11 @@ class ShortcutManager {
         const oldFolderId = shortcut.folderId;
         shortcut.folderId = folderId;
             
-        // フォルダーから外に出す場合、isFolderフラグをfalseに設定
-        if (folderId === null) {
-            shortcut.isFolder = false;
-            // フォルダー用のURLを通常のURLに変更する必要がある場合
-            if (shortcut.url && shortcut.url.startsWith('#folder-')) {
-                // フォルダーURLの場合は、元のURLがないので修正が必要
-                console.warn('Shortcut has folder URL but being moved out:', shortcut);
-            }
+        // フォルダーから外に出す場合の処理
+        // ただし、フォルダー自体を移動しているわけではないので、isFolder は変更しない
+        if (folderId === null && !shortcut.isFolder) {
+            // 通常のショートカットをフォルダーから外に出す場合の処理
+            console.log('Moving shortcut out of folder');
         }
             
         if (folderId === null && oldFolderId) {
