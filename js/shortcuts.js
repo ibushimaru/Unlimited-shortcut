@@ -222,7 +222,8 @@ class ShortcutManager {
         newShortcuts.splice(adjustedToIndex, 0, item);
         
         // 結果を確認
-        console.log(`[reorder] Complete: moved "${item.name}" from ${fromIndex} to ${adjustedToIndex}`);
+        console.log(`[reorder] Complete: moved "${item.name}" from ${fromIndex} to ${adjustedToIndex} (requested: ${toIndex})`);
+        console.log(`[reorder] Adjustment applied: ${fromIndex < toIndex ? 'Yes (toIndex-1)' : 'No'}`);
         console.log('[reorder] New order:', newShortcuts.map(s => s.name));
         
         // 新しい配列を設定

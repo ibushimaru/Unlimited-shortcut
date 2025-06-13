@@ -570,10 +570,15 @@ class MouseDragManager {
                     if (i !== this.draggedIndex) {
                         // visualIndex - 1 の位置を探す（ドラッグアイテムが抜けた分を考慮）
                         if (visibleCount === visualIndex - 1) {
-                            console.log(`[convertVisualToData] Left-to-right: Visual ${visualIndex} → Data ${i + 1}`);
-                            console.log(`[convertVisualToData] Note: Adding +1 to fix '1つ若い場所' issue`);
-                            // 「1つ若い場所に挿入される」問題を修正するため、+1を返す
-                            return i + 1;
+                            // デバッグ: 現在の計算を詳しく表示
+                            console.log(`[convertVisualToData] Left-to-right calculation:`);
+                            console.log(`  - Visual index: ${visualIndex}`);
+                            console.log(`  - Current data index (i): ${i}`);
+                            console.log(`  - Will return: ${i + 2} (i + 2 to fix off-by-one)`);
+                            console.log(`  - Note: reorder will apply -1 adjustment for left-to-right`);
+                            // 「1つ若い場所に挿入される」問題を修正するため、+2を返す
+                            // (reorderで-1されるので、結果的に+1になる)
+                            return i + 2;
                         }
                         visibleCount++;
                     }
