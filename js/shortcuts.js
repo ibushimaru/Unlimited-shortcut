@@ -493,6 +493,11 @@ class ShortcutManager {
         // ドラッグ状態をリセット
         this.draggedElement = null;
         this.draggedIndex = null;
+        
+        // すべてのプレースホルダーを削除
+        if (this.mouseDragManager && this.mouseDragManager.removeAllPlaceholders) {
+            this.mouseDragManager.removeAllPlaceholders();
+        }
 
         console.log('Render called. Total shortcuts:', this.shortcuts.length);
         console.log('Shortcuts data:', this.shortcuts.map(s => ({

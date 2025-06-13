@@ -788,12 +788,19 @@ class MouseDragManager {
             this.draggedElement.style.opacity = '1';
         }
 
-
         // ホバーエフェクトをクリア
         this.clearHoverEffects();
         
         // 挿入マーカーを削除
         this.hideInsertMarker();
+        
+        // すべてのプレースホルダーを強制的に削除
+        const allPlaceholders = document.querySelectorAll('.shortcut-placeholder');
+        allPlaceholders.forEach(placeholder => {
+            if (placeholder.parentNode) {
+                placeholder.parentNode.removeChild(placeholder);
+            }
+        });
 
         // ドラッグ後のクリックを防ぐため、少し遅延してからフラグをリセット
         if (this.hasMoved) {
@@ -815,6 +822,16 @@ class MouseDragManager {
     cancelDrag() {
         console.log('Drag cancelled');
         this.cleanup();
+    }
+    
+    // プレースホルダーをすべて削除（公開メソッド）
+    removeAllPlaceholders() {
+        const allPlaceholders = document.querySelectorAll('.shortcut-placeholder');
+        allPlaceholders.forEach(placeholder => {
+            if (placeholder.parentNode) {
+                placeholder.parentNode.removeChild(placeholder);
+            }
+        });
     }
 }
 
