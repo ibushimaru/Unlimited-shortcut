@@ -68,7 +68,9 @@ class MouseDragManager {
             return;
         }
         
-
+        // ドラッグ対象のコンテナを記録
+        this.draggedElementContainer = item.parentNode;
+        
         // ドラッグの準備だけ行い、実際のドラッグはまだ開始しない
         this.draggedElement = item;
         this.draggedIndex = parseInt(item.dataset.index);
@@ -84,7 +86,7 @@ class MouseDragManager {
         }
         
         // ドラッグ開始時の各アイテムの位置を記録
-        const grid = document.getElementById('shortcutsGrid');
+        const grid = this.getTargetGrid();
         if (grid) {
             this.originalItemPositions.clear();
             const items = Array.from(grid.children).filter(child => 
@@ -117,6 +119,11 @@ class MouseDragManager {
         
         e.preventDefault();
         console.log('Mouse down on item:', this.draggedIndex);
+    }
+    
+    // グリッドを取得するメソッド（サブクラスでオーバーライド可能）
+    getTargetGrid() {
+        return document.getElementById('shortcutsGrid');
     }
 
     handleMouseMove(e) {
@@ -158,18 +165,31 @@ class MouseDragManager {
                 this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
                 
                 // 元の要素をプレースホルダーに置き換える
-                const grid = document.getElementById('shortcutsGrid');
+                const grid = this.getTargetGrid();
                 if (grid && this.placeholder) {
                     console.log('[Before Replace] Grid children:', grid.children.length);
                     console.log('[Before Replace] Dragged element parent:', this.draggedElement.parentNode.tagName);
                     
                     // プレースホルダーを元の要素の位置に挿入
-                    grid.insertBefore(this.placeholder, this.draggedElement);
+                    // 親要素が同じか確認してから実行
+                    if (this.draggedElement.parentNode === grid) {
+                        grid.insertBefore(this.placeholder, this.draggedElement);
+                    } else {
+                        console.warn('Dragged element is not in grid, appending placeholder');
+                        this.appendPlaceholderToGrid(grid);
+                    }
                     
                     console.log('[After Insert] Grid children:', grid.children.length);
                     
-                    // 元の要素を一時的にグリッドから削除
-                    grid.removeChild(this.draggedElement);
+                    // 元の要素を一時的にグリッドから削除（親要素を確認してから）
+                    if (this.draggedElement.parentNode === grid) {
+                        grid.removeChild(this.draggedElement);
+                    } else {
+                        console.warn('Dragged element parent mismatch, removing from actual parent');
+                        if (this.draggedElement.parentNode) {
+                            this.draggedElement.parentNode.removeChild(this.draggedElement);
+                        }
+                    }
                     
                     console.log('[After Remove] Grid children:', grid.children.length);
                     
@@ -301,7 +321,7 @@ class MouseDragManager {
                             }
                             
                             // グリッドのレイアウト情報を取得して端の検出を改善
-                            const grid = document.getElementById('shortcutsGrid');
+                            const grid = this.getTargetGrid();
                             const gridRect = grid.getBoundingClientRect();
                             const gridStyle = window.getComputedStyle(grid);
                             const gap = parseInt(gridStyle.gap || gridStyle.gridGap || '16');
@@ -614,11 +634,22 @@ class MouseDragManager {
     
     showInsertMarker(targetElement, insertBefore) {
         console.log('=== SHOW INSERT MARKER ===');
-        const grid = document.getElementById('shortcutsGrid');
+        const grid = this.getTargetGrid();
         
         // プレースホルダーがなければエラー（ドラッグ開始時に作成されているはず）
         if (!this.placeholder) {
             console.error('Placeholder should exist at this point');
+            return;
+        }
+        
+        // ターゲット要素がグリッド内にない場合はスキップ
+        // より柔軟な検証を使用
+        if (!grid || !targetElement || !grid.contains(targetElement)) {
+            console.warn('Target element is not in target grid, skipping insert marker', {
+                grid: grid ? grid.id : 'null',
+                targetElement: targetElement ? targetElement.className : 'null',
+                contains: grid && targetElement ? grid.contains(targetElement) : false
+            });
             return;
         }
         
@@ -640,6 +671,12 @@ class MouseDragManager {
     }
     
     insertPlaceholderAtTarget(grid, targetElement, insertBefore) {
+        // ターゲット要素がグリッド内にない場合はスキップ
+        if (!grid.contains(targetElement)) {
+            console.warn('Target element is not in the specified grid');
+            return;
+        }
+        
         // 既存のプレースホルダーを削除
         if (this.placeholder.parentNode) {
             this.placeholder.parentNode.removeChild(this.placeholder);
@@ -652,27 +689,27 @@ class MouseDragManager {
         
         // 挿入位置を決定
         if (insertBefore) {
-            // ターゲットの前に挿入
-            grid.insertBefore(this.placeholder, targetElement);
+            // ターゲットの前に挿入（安全に実行）
+            if (!this.safeInsertBefore(grid, this.placeholder, targetElement)) {
+                // 失敗した場合は適切な位置に追加
+                this.appendPlaceholderToGrid(grid);
+            }
         } else {
             // ターゲットの後に挿入
             const nextSibling = targetElement.nextElementSibling;
-            if (nextSibling && !nextSibling.dataset.isAddButton && !nextSibling.classList.contains('grid-spacer')) {
-                grid.insertBefore(this.placeholder, nextSibling);
-            } else {
-                // 最後の要素の場合、スペーサーの前に挿入
-                const spacer = grid.querySelector('.grid-spacer');
-                if (spacer) {
-                    grid.insertBefore(this.placeholder, spacer);
-                } else {
-                    // スペーサーがない場合は追加ボタンの前に挿入
-                    const addButton = grid.querySelector('[data-is-add-button="true"]');
-                    if (addButton) {
-                        grid.insertBefore(this.placeholder, addButton);
-                    } else {
-                        grid.appendChild(this.placeholder);
-                    }
+            // フォルダーモーダルグリッドの場合は特別な要素をチェックしない
+            const skipSpecialElements = grid.id === 'folderModalGrid' ? false : 
+                (nextSibling && !nextSibling.dataset.isAddButton && !nextSibling.classList.contains('grid-spacer'));
+            
+            if (nextSibling && (grid.id === 'folderModalGrid' || skipSpecialElements)) {
+                // 次の兄弟要素の前に挿入（安全に実行）
+                if (!this.safeInsertBefore(grid, this.placeholder, nextSibling)) {
+                    // 失敗した場合は適切な位置に追加
+                    this.appendPlaceholderToGrid(grid);
                 }
+            } else {
+                // 最後の要素の場合、適切な位置に追加
+                this.appendPlaceholderToGrid(grid);
             }
         }
         
@@ -695,11 +732,15 @@ class MouseDragManager {
         
         for (let i = 0; i < placeholderPos; i++) {
             const child = allChildren[i];
-            if (child.classList.contains('shortcut-item') && 
+            // フォルダーモーダルグリッドの場合は追加ボタンやスペーサーのチェックは不要
+            const isValidItem = grid.id === 'folderModalGrid' ? 
+                child.classList.contains('shortcut-item') && !child.classList.contains('shortcut-placeholder') :
+                child.classList.contains('shortcut-item') && 
                 !child.dataset.isAddButton &&
                 !child.classList.contains('shortcut-placeholder') &&
-                !child.classList.contains('grid-spacer')) {
+                !child.classList.contains('grid-spacer');
                 
+            if (isValidItem) {
                 const itemIndex = parseInt(child.dataset.index);
                 debugItems.push(itemIndex);
                 visualIndex++;
@@ -815,12 +856,18 @@ class MouseDragManager {
         const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
         
         // プレースホルダーを含む全要素を取得（ドラッグ中の元要素は既に非表示）
-        const allChildren = Array.from(grid.children).filter(child => 
-            (child.classList.contains('shortcut-item') || child === this.placeholder) && 
-            !child.dataset.isAddButton &&
-            !child.classList.contains('grid-spacer') &&
-            child.style.display !== 'none'
-        );
+        const allChildren = Array.from(grid.children).filter(child => {
+            // フォルダーモーダルグリッドの場合は追加ボタンやスペーサーのチェックは不要
+            if (grid.id === 'folderModalGrid') {
+                return (child.classList.contains('shortcut-item') || child === this.placeholder) && 
+                       child.style.display !== 'none';
+            } else {
+                return (child.classList.contains('shortcut-item') || child === this.placeholder) && 
+                       !child.dataset.isAddButton &&
+                       !child.classList.contains('grid-spacer') &&
+                       child.style.display !== 'none';
+            }
+        });
         
         console.log('[MoveItems] Filtered children count:', allChildren.length);
         
@@ -853,9 +900,72 @@ class MouseDragManager {
         console.log('=== END MOVE ITEMS DEBUG ===');
     }
     
+    // ヘルパーメソッド: 安全にinsertBeforeを実行
+    safeInsertBefore(parent, newNode, referenceNode) {
+        if (!parent || !newNode) return false;
+        
+        // referenceNodeがnullの場合は末尾に追加
+        if (!referenceNode) {
+            parent.appendChild(newNode);
+            return true;
+        }
+        
+        // referenceNodeが同じ親を持つか確認
+        if (referenceNode.parentNode === parent) {
+            parent.insertBefore(newNode, referenceNode);
+            return true;
+        } else {
+            console.warn('Reference node is not a child of parent, appending to end');
+            parent.appendChild(newNode);
+            return false;
+        }
+    }
+    
+    // ヘルパーメソッド: プレースホルダーを適切な位置に追加
+    appendPlaceholderToGrid(grid) {
+        // フォルダーモーダルグリッドの場合は単純に追加
+        if (grid.id === 'folderModalGrid') {
+            grid.appendChild(this.placeholder);
+            return;
+        }
+        
+        // メイングリッドの場合はスペーサーや追加ボタンの前に挿入
+        const spacer = grid.querySelector('.grid-spacer');
+        const addButton = grid.querySelector('[data-is-add-button="true"]');
+        
+        if (spacer) {
+            this.safeInsertBefore(grid, this.placeholder, spacer);
+        } else if (addButton) {
+            this.safeInsertBefore(grid, this.placeholder, addButton);
+        } else {
+            grid.appendChild(this.placeholder);
+        }
+    }
+    
+    // ヘルパーメソッド: ドラッグ要素を適切な位置に追加
+    appendDraggedElementToGrid(grid) {
+        // フォルダーモーダルグリッドの場合は単純に追加
+        if (grid.id === 'folderModalGrid') {
+            grid.appendChild(this.draggedElement);
+            return;
+        }
+        
+        // メイングリッドの場合はスペーサーや追加ボタンの前に挿入
+        const spacer = grid.querySelector('.grid-spacer');
+        const addButton = grid.querySelector('[data-is-add-button="true"]');
+        
+        if (spacer) {
+            this.safeInsertBefore(grid, this.draggedElement, spacer);
+        } else if (addButton) {
+            this.safeInsertBefore(grid, this.draggedElement, addButton);
+        } else {
+            grid.appendChild(this.draggedElement);
+        }
+    }
+    
     hideInsertMarker() {
         // アイテムのスタイルをリセット
-        const grid = document.getElementById('shortcutsGrid');
+        const grid = this.getTargetGrid();
         if (grid) {
             const items = grid.querySelectorAll('.shortcut-item');
             items.forEach(item => {
@@ -947,21 +1057,26 @@ class MouseDragManager {
             this.draggedElement.classList.remove('dragging-original');
             
             // プレースホルダーがあれば、元の要素と置き換える
-            const grid = document.getElementById('shortcutsGrid');
+            const grid = this.getTargetGrid();
             if (this.placeholder && this.placeholder.parentNode && grid) {
                 // 元の要素をグリッドに戻す
                 if (!grid.contains(this.draggedElement)) {
-                    grid.insertBefore(this.draggedElement, this.placeholder);
+                    // プレースホルダーと同じ親を持つか確認
+                    if (this.placeholder.parentNode === grid) {
+                        this.safeInsertBefore(grid, this.draggedElement, this.placeholder);
+                    } else {
+                        // 異なる親の場合は適切な位置に追加
+                        console.warn('Placeholder and grid have different parents during cleanup');
+                        this.appendDraggedElementToGrid(grid);
+                    }
                 }
-                this.placeholder.parentNode.removeChild(this.placeholder);
+                // プレースホルダーを削除
+                if (this.placeholder.parentNode) {
+                    this.placeholder.parentNode.removeChild(this.placeholder);
+                }
             } else if (grid && !grid.contains(this.draggedElement)) {
-                // プレースホルダーがない場合は最後に追加
-                const spacer = grid.querySelector('.grid-spacer');
-                if (spacer) {
-                    grid.insertBefore(this.draggedElement, spacer);
-                } else {
-                    grid.appendChild(this.draggedElement);
-                }
+                // プレースホルダーがない場合は適切な位置に追加
+                this.appendDraggedElementToGrid(grid);
             }
         }
 
@@ -1030,6 +1145,11 @@ class FolderMouseDragManager extends MouseDragManager {
         this.folderId = folderId;
     }
     
+    // オーバーライド: フォルダーモーダルのグリッドを返す
+    getTargetGrid() {
+        return document.getElementById('folderModalGrid');
+    }
+    
     init() {
         console.log('=== FolderMouseDragManager initialized for folder:', this.folderId);
         this.modalGrid = document.getElementById('folderModalGrid');
@@ -1069,81 +1189,146 @@ class FolderMouseDragManager extends MouseDragManager {
     }
     
     handleMouseMove(e) {
-        if (!this.draggedElement || !this.modalGrid) return;
+        if (!this.draggedElement) return;
         
-        // フォルダー内でのドラッグのみ処理
-        if (this.draggedElement.parentNode !== this.modalGrid && 
-            (!this.placeholder || this.placeholder.parentNode !== this.modalGrid)) {
+        // modalGridを確実に取得
+        if (!this.modalGrid) {
+            this.modalGrid = document.getElementById('folderModalGrid');
+        }
+        
+        // ドラッグ開始の閾値チェック（親クラスの処理の一部を再実装）
+        if (!this.isDragging) {
+            const distance = Math.sqrt(
+                Math.pow(e.clientX - this.startX, 2) + 
+                Math.pow(e.clientY - this.startY, 2)
+            );
+            
+            if (distance > this.dragThreshold) {
+                // 閾値を超えたらドラッグを開始
+                this.isDragging = true;
+                this.hasMoved = true;
+                
+                // 親クラスのドラッグ開始処理を呼び出す
+                this.startDragVisuals(e);
+            }
             return;
         }
         
-        // 親クラスのhandleMouseMoveを呼び出す
-        super.handleMouseMove(e);
+        // ドラッグ中のクローン要素を移動
+        if (this.isDragging && this.dragClone) {
+            this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
+            this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+        }
         
         // モーダルの外にドラッグしているかチェック
         const modal = document.getElementById('folderModal');
         const modalContent = modal ? modal.querySelector('.folder-modal-content') : null;
         
         if (this.isDragging && modal && modalContent) {
-            // モーダル背景（暗い部分）にドラッグしている場合
+            // ホバー中の要素を検出
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
+            
+            // モーダル背景（暗い部分）にドラッグしている場合
             if (!modalContent.contains(elementBelow) && modal.contains(elementBelow)) {
                 modal.classList.add('modal-drag-out');
                 this.currentDropMode = 'drag-out';
+                this.clearHoverEffects();
+                this.hideInsertMarker();
             } else {
                 modal.classList.remove('modal-drag-out');
-                // フォルダー内での並び替え処理
-                if (this.currentDropMode === 'drag-out') {
-                    this.currentDropMode = 'reorder';
+                
+                // フォルダー内でのホバー処理
+                if (elementBelow && this.modalGrid && this.modalGrid.contains(elementBelow)) {
+                    const targetItem = elementBelow.closest('.shortcut-item');
+                    if (targetItem && targetItem !== this.draggedElement) {
+                        const targetIndex = parseInt(targetItem.dataset.index);
+                        if (targetIndex !== this.draggedIndex) {
+                            const rect = targetItem.getBoundingClientRect();
+                            const dropX = e.clientX - rect.left;
+                            const dropXPercent = dropX / rect.width;
+                            
+                            // 並び替えモード
+                            this.currentDropMode = 'reorder';
+                            this.clearHoverEffects();
+                            
+                            // プレースホルダーを表示
+                            if (this.placeholder) {
+                                this.placeholder.style.visibility = '';
+                                this.placeholder.style.opacity = '';
+                            }
+                            
+                            const insertBefore = dropXPercent < 0.5;
+                            this.showInsertMarker(targetItem, insertBefore);
+                        }
+                    }
+                } else {
+                    // モーダル内でもホバー要素がない場合
+                    this.clearHoverEffects();
+                    this.hideInsertMarker();
+                    if (this.currentDropMode !== 'drag-out') {
+                        this.currentDropMode = null;
+                    }
                 }
             }
         }
-        
-        // フォルダー内での並び替え処理
-        if (this.isDragging && this.currentDropMode === 'reorder') {
-            // フォルダー内のアイテムのみを対象にする
-            const folderItems = Array.from(this.modalGrid.children).filter(child => 
-                child.classList.contains('shortcut-item')
-            );
-            
-            // プレースホルダーの位置を更新
-            this.updatePlaceholderPositionInFolder(e, folderItems);
-        }
     }
     
-    updatePlaceholderPositionInFolder(e, folderItems) {
-        // マウス位置に最も近いアイテムを見つける
-        let closestItem = null;
-        let closestDistance = Infinity;
-        let insertBefore = true;
+    // ドラッグビジュアルの開始処理を抽出
+    startDragVisuals(e) {
+        // 要素の現在の位置を正確に取得
+        const rect = this.draggedElement.getBoundingClientRect();
         
-        folderItems.forEach(item => {
-            if (item === this.draggedElement || item === this.placeholder) return;
-            
-            const rect = item.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const distance = Math.sqrt(
-                Math.pow(e.clientX - centerX, 2) + 
-                Math.pow(e.clientY - centerY, 2)
-            );
-            
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closestItem = item;
-                // マウスがアイテムの左半分にある場合は前に、右半分にある場合は後ろに挿入
-                insertBefore = e.clientX < centerX;
-            }
-        });
-        
-        if (closestItem && this.placeholder) {
-            if (insertBefore) {
-                this.modalGrid.insertBefore(this.placeholder, closestItem);
-            } else {
-                this.modalGrid.insertBefore(this.placeholder, closestItem.nextSibling);
-            }
+        // クローン要素を作成してドラッグ（元の要素は位置を保持）
+        if (!this.dragClone) {
+            this.dragClone = this.draggedElement.cloneNode(true);
+            this.dragClone.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            this.dragClone.style.position = 'fixed';
+            this.dragClone.style.zIndex = '9999';
+            this.dragClone.style.opacity = '0.85';
+            this.dragClone.style.cursor = 'grabbing';
+            this.dragClone.style.pointerEvents = 'none';
+            this.dragClone.style.transform = 'scale(1.05)';
+            this.dragClone.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+            document.body.appendChild(this.dragClone);
         }
+        
+        // クローンの位置を設定
+        this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
+        this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+        
+        // 元の要素をプレースホルダーに置き換える
+        const grid = this.getTargetGrid();
+        if (grid && this.placeholder) {
+            // プレースホルダーを元の要素の位置に挿入
+            if (this.draggedElement.parentNode === grid) {
+                grid.insertBefore(this.placeholder, this.draggedElement);
+            } else {
+                console.warn('Dragged element is not in grid, appending placeholder');
+                this.appendPlaceholderToGrid(grid);
+            }
+            
+            // 元の要素を一時的にグリッドから削除
+            if (this.draggedElement.parentNode === grid) {
+                grid.removeChild(this.draggedElement);
+            } else if (this.draggedElement.parentNode) {
+                this.draggedElement.parentNode.removeChild(this.draggedElement);
+            }
+            
+            // bodyに追加して完全に非表示にする
+            this.draggedElement.style.display = 'none';
+            this.draggedElement.style.visibility = 'hidden';
+            this.draggedElement.style.position = 'absolute';
+            this.draggedElement.style.left = '-9999px';
+            this.draggedElement.style.top = '-9999px';
+            this.draggedElement.style.width = '0';
+            this.draggedElement.style.height = '0';
+            this.draggedElement.classList.add('dragging-original');
+            document.body.appendChild(this.draggedElement);
+        }
+        
+        console.log('Drag started in folder modal');
     }
+    
     
     handleMouseUp(e) {
         if (!this.isDragging || !this.draggedElement) return;
@@ -1246,7 +1431,8 @@ class FolderMouseDragManager extends MouseDragManager {
         if (this.draggedElement && this.modalGrid) {
             // モーダル内の要素の場合、modalGridに戻す
             if (this.placeholder && this.placeholder.parentNode === this.modalGrid) {
-                this.modalGrid.insertBefore(this.draggedElement, this.placeholder);
+                // 安全にinsertBeforeを実行
+                this.safeInsertBefore(this.modalGrid, this.draggedElement, this.placeholder);
             }
         }
         
@@ -1269,6 +1455,43 @@ class FolderMouseDragManager extends MouseDragManager {
         }
         
         return elementBelow;
+    }
+    
+    // オーバーライド: フォルダー内での挿入マーカー表示
+    showInsertMarker(targetElement, insertBefore) {
+        console.log('=== FOLDER SHOW INSERT MARKER ===');
+        const grid = this.getTargetGrid();
+        const modalGrid = document.getElementById('folderModalGrid');
+        
+        // プレースホルダーがなければエラー（ドラッグ開始時に作成されているはず）
+        if (!this.placeholder) {
+            console.error('Placeholder should exist at this point');
+            return;
+        }
+        
+        // ターゲット要素がフォルダーモーダルグリッド内にない場合はスキップ
+        // より柔軟な検証: modalGrid内のどこかにあるかチェック
+        if (!modalGrid || !modalGrid.contains(targetElement)) {
+            console.warn('Target element is not in folder modal grid, skipping insert marker');
+            return;
+        }
+        
+        console.log('[FolderShowMarker] Target element:', {
+            index: targetElement.dataset.index,
+            classes: targetElement.className,
+            insertBefore: insertBefore,
+            inGrid: grid.contains(targetElement),
+            inModalGrid: modalGrid.contains(targetElement)
+        });
+        
+        // プレースホルダーにドロップゾーンクラスを追加
+        this.placeholder.classList.add('drop-zone');
+        
+        // DOM上の位置に基づいてプレースホルダーを移動
+        this.insertPlaceholderAtTarget(grid, targetElement, insertBefore);
+        
+        // フォルダー内でのアイテム移動は特別な処理不要（プレースホルダーが位置を示す）
+        console.log('=== END FOLDER SHOW INSERT MARKER ===');
     }
 }
 
