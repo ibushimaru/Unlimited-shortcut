@@ -670,7 +670,9 @@ class MouseDragManager {
         // ドラッグ中のアイテムの元の位置を取得
         const draggedOriginalPos = this.originalItemPositions.get(this.draggedIndex);
         
-        // 各アイテムの理想的な位置を計算
+        console.log(`[moveItems] Placeholder at index ${placeholderIndex}, dragged from ${draggedOriginalPos}`);
+        
+        // 各アイテムの移動を計算
         allChildren.forEach((item, visualIndex) => {
             if (item === this.placeholder) return;
             
@@ -687,47 +689,37 @@ class MouseDragManager {
             const originalPos = this.originalItemPositions.get(itemDataIndex);
             if (originalPos === undefined) return;
             
-            // 理想的な位置を計算
-            let idealPos = originalPos;
+            // 移動方向を決定する新しいロジック
+            let targetPosition = visualIndex;
             
-            // プレースホルダーの位置に基づいて調整
+            // 移動ロジック：
+            // 1. プレースホルダーがアイテムの前に挿入された場合 → アイテムは右に移動
+            // 2. プレースホルダーがアイテムの後に挿入された場合 → アイテムは移動しない
+            
             if (draggedOriginalPos !== undefined) {
-                if (draggedOriginalPos < originalPos && placeholderIndex <= originalPos) {
-                    // ドラッグアイテムが前から移動してきて、このアイテムより前か同じ位置にある
-                    idealPos = originalPos - 1;
-                } else if (draggedOriginalPos > originalPos && placeholderIndex > originalPos) {
-                    // ドラッグアイテムが後ろから移動してきて、このアイテムより後ろにある
-                    idealPos = originalPos + 1;
+                // プレースホルダーより前にあるアイテムはそのまま
+                // プレースホルダー以降のアイテムは右に移動
+                if (visualIndex >= placeholderIndex) {
+                    targetPosition = visualIndex + 1;
+                    console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves right to ${targetPosition}`);
                 }
             }
             
-            // 現在の視覚的位置と理想的位置の差を計算（デバッグ用）
-            // const deltaPos = idealPos - visualIndex;
-            
-            // 行と列の差を計算
+            // 移動量を計算
             const currentRow = Math.floor(visualIndex / columns);
             const currentCol = visualIndex % columns;
-            const idealRow = Math.floor(idealPos / columns);
-            const idealCol = idealPos % columns;
+            const targetRow = Math.floor(targetPosition / columns);
+            const targetCol = targetPosition % columns;
             
-            const deltaX = (idealCol - currentCol) * (itemWidth + gap);
-            const deltaY = (idealRow - currentRow) * (itemHeight + gap);
+            const deltaX = (targetCol - currentCol) * (itemWidth + gap);
+            const deltaY = (targetRow - currentRow) * (itemHeight + gap);
             
             // アニメーションを適用
             if (deltaX !== 0 || deltaY !== 0) {
-                // より滑らかなスプリング効果のあるイージング
-                // cubic-bezier(0.34, 1.56, 0.64, 1) - バウンス効果あり
-                // cubic-bezier(0.25, 0.46, 0.45, 0.94) - スムーズなイーズアウト
-                // cubic-bezier(0.68, -0.55, 0.265, 1.55) - 弾性効果
-                item.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                item.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 item.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                
-                // 遅延を追加してより自然な動きに
-                const delay = visualIndex * 0.01; // 各アイテムに微小な遅延
-                item.style.transitionDelay = `${delay}s`;
             } else {
                 item.style.transform = '';
-                item.style.transitionDelay = '';
             }
         });
     }
