@@ -560,23 +560,23 @@ class MouseDragManager {
         
         // 左から右へのドラッグの場合（ドラッグアイテムが前にある）
         if (draggedItemVisualIndex < visualIndex) {
-            // ドラッグアイテムを除外してカウントするため、視覚インデックスを1減らす
-            const adjustedVisualIndex = visualIndex - 1;
             visibleCount = 0;
             
+            // ドラッグ中のアイテムを除外して、視覚インデックスに対応するデータインデックスを探す
             for (let i = 0; i < shortcuts.length; i++) {
                 const shortcut = shortcuts[i];
                 if (!shortcut.folderId || shortcut.isFolder) {
-                    // ドラッグ中のアイテムはスキップ
-                    if (i === this.draggedIndex) {
-                        continue;
+                    // ドラッグ中のアイテムは除外
+                    if (i !== this.draggedIndex) {
+                        // visualIndex - 1 の位置を探す（ドラッグアイテムが抜けた分を考慮）
+                        if (visibleCount === visualIndex - 1) {
+                            console.log(`[convertVisualToData] Left-to-right: Visual ${visualIndex} → Data ${i + 1}`);
+                            console.log(`[convertVisualToData] Note: Adding +1 to fix '1つ若い場所' issue`);
+                            // 「1つ若い場所に挿入される」問題を修正するため、+1を返す
+                            return i + 1;
+                        }
+                        visibleCount++;
                     }
-                    
-                    if (visibleCount === adjustedVisualIndex) {
-                        console.log(`[convertVisualToData] Left-to-right: Visual ${visualIndex} → Data ${i + 1} (insert after index ${i})`);
-                        return i + 1; // このアイテムの後に挿入
-                    }
-                    visibleCount++;
                 }
             }
         }
