@@ -380,7 +380,7 @@ function setupModalDragOut(folderId) {
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
             modal.classList.add('modal-drag-out');
-            console.log('Drag over modal background at:', e.target);
+            // dragoverは頻繁に発火するのでログは削除
         }
     };
     

@@ -783,34 +783,32 @@ class ShortcutManager {
         // フォルダーから外に出す場合は最後尾に移動
         if (folderId === null && oldFolderId !== null) {
             console.log('Moving shortcut out of folder to the end');
-            // 現在の位置から削除
+            
+            // まず現在の位置から削除
             this.shortcuts.splice(shortcutIndex, 1);
-            // 最後尾に追加
-            this.shortcuts.push(shortcut);
-            console.log('Moved to end of list');
-        }
             
-        if (folderId === null && oldFolderId) {
-            // フォルダーから外に出した場合
-            console.log('Moving out of folder:', oldFolderId);
-            
-            // 元のフォルダーに他のアイテムがないか確認
+            // 元のフォルダーに他のアイテムがないか確認（削除前のインデックスで確認）
             const remainingInFolder = this.shortcuts.filter(s => 
-                s.folderId === oldFolderId && !s.isFolder && s !== shortcut
+                s.folderId === oldFolderId && !s.isFolder
             ).length;
             
             console.log('Remaining items in folder:', remainingInFolder);
             
+            // 空のフォルダーを削除（アイテムを追加する前に）
             if (remainingInFolder === 0) {
-                // フォルダーが空になった場合、フォルダーを削除
                 console.log('Removing empty folder');
                 const folderIndex = this.shortcuts.findIndex(s => 
                     s.isFolder && s.folderId === oldFolderId
                 );
-                if (folderIndex !== -1 && folderIndex < this.shortcuts.length) {
+                if (folderIndex !== -1) {
                     this.shortcuts.splice(folderIndex, 1);
+                    console.log('Folder removed at index:', folderIndex);
                 }
             }
+            
+            // 最後尾に追加
+            this.shortcuts.push(shortcut);
+            console.log('Moved to end of list. New length:', this.shortcuts.length);
         }
         
         console.log('Updated folderId to:', folderId);

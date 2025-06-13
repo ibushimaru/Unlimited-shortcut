@@ -110,7 +110,10 @@ class MouseDragManager {
         this.offsetX = e.clientX - rect.left;
         this.offsetY = e.clientY - rect.top;
         
-        e.preventDefault();
+        // デフォルトの動作を防ぐが、クリックは許可するため選択的に適用
+        if (e.detail > 1) { // ダブルクリック以上の場合
+            e.preventDefault();
+        }
         console.log('Mouse down on item:', this.draggedIndex);
     }
 
@@ -430,12 +433,15 @@ class MouseDragManager {
             }
         }
 
-        // クリーンアップ（reorder処理で既にcleanupが呼ばれる場合はスキップ）
-        if (!this.cleanupHandled) {
-            this.cleanup();
+        // ドラッグが開始されていた場合のみクリーンアップ
+        if (this.draggedElement) {
+            // クリーンアップ（reorder処理で既にcleanupが呼ばれる場合はスキップ）
+            if (!this.cleanupHandled) {
+                this.cleanup();
+            }
+            // フラグをリセット
+            this.cleanupHandled = false;
         }
-        // フラグをリセット
-        this.cleanupHandled = false;
     }
 
     getElementBelow(x, y) {
