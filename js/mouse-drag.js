@@ -110,10 +110,7 @@ class MouseDragManager {
         this.offsetX = e.clientX - rect.left;
         this.offsetY = e.clientY - rect.top;
         
-        // デフォルトの動作を防ぐが、クリックは許可するため選択的に適用
-        if (e.detail > 1) { // ダブルクリック以上の場合
-            e.preventDefault();
-        }
+        e.preventDefault();
         console.log('Mouse down on item:', this.draggedIndex);
     }
 
@@ -279,7 +276,7 @@ class MouseDragManager {
     handleMouseUp(e) {
         if (!this.draggedElement) return;
 
-        // 実際にドラッグが発生した場合のみ処理
+        // 実際にドラッグが発生した場合の処理
         if (this.isDragging && this.hasMoved) {
             console.log('Mouse drag ended');
 
@@ -433,15 +430,12 @@ class MouseDragManager {
             }
         }
 
-        // ドラッグが開始されていた場合のみクリーンアップ
-        if (this.draggedElement) {
-            // クリーンアップ（reorder処理で既にcleanupが呼ばれる場合はスキップ）
-            if (!this.cleanupHandled) {
-                this.cleanup();
-            }
-            // フラグをリセット
-            this.cleanupHandled = false;
+        // クリーンアップ（reorder処理で既にcleanupが呼ばれる場合はスキップ）
+        if (!this.cleanupHandled) {
+            this.cleanup();
         }
+        // フラグをリセット
+        this.cleanupHandled = false;
     }
 
     getElementBelow(x, y) {
