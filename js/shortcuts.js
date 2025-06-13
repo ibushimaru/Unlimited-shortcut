@@ -4,6 +4,11 @@ class ShortcutManager {
         this.shortcuts = [];
         this.folders = [];
         this.currentEditIndex = null;
+        this.draggedElement = null;
+        this.draggedIndex = null;
+        this.searchKeyword = '';
+        this.mouseDragManager = null;
+        this.renderTimeout = null; // レンダリングのデバウンス用
         this.init();
     }
 
@@ -492,13 +497,21 @@ class ShortcutManager {
     }
 
     // ショートカットの描画
-    render() {
+    render(options = {}) {
         const grid = document.getElementById('shortcutsGrid');
         const wasAnimating = grid.classList.contains('animating');
         
-        // アニメーションフラグを追加
-        if (wasAnimating) {
+        // オプションでアニメーションを無効化できるように
+        const skipAnimation = options.skipAnimation || false;
+        
+        // アニメーションフラグを追加（skipAnimationがfalseの場合のみ）
+        if (wasAnimating && !skipAnimation) {
             grid.classList.add('animating');
+        }
+        
+        // skipAnimationが有効な場合はno-animationクラスを追加
+        if (skipAnimation) {
+            grid.classList.add('no-animation');
         }
         
         grid.innerHTML = '';
@@ -608,6 +621,13 @@ class ShortcutManager {
             setTimeout(() => {
                 grid.classList.remove('animating');
             }, 300);
+        }
+        
+        // no-animationクラスも遅延して削除
+        if (skipAnimation) {
+            setTimeout(() => {
+                grid.classList.remove('no-animation');
+            }, 100);
         }
 
         // ドラッグ&ドロップの設定
@@ -859,9 +879,9 @@ class ShortcutManager {
     }
 
     // ショートカットをフォルダーに移動
-    async moveShortcutToFolder(shortcutIndex, folderId) {
+    async moveShortcutToFolder(shortcutIndex, folderId, skipRender = false) {
         console.log('=== moveShortcutToFolder START ===');
-        console.log('Parameters:', { shortcutIndex, folderId });
+        console.log('Parameters:', { shortcutIndex, folderId, skipRender });
         console.log('Call stack:', new Error().stack);
         console.log('Current shortcuts before move:', this.shortcuts.map((s, i) => 
             `[${i}] ${s.name} (folder: ${s.folderId || 'none'})`
@@ -923,7 +943,11 @@ class ShortcutManager {
         console.log('=== moveShortcutToFolder END ===');
         
         await this.save();
-        this.render();
+        
+        // skipRender フラグがtrueの場合は render() をスキップ
+        if (!skipRender) {
+            this.render();
+        }
     }
 
     // フォルダーコンテキストメニューの表示

@@ -336,6 +336,54 @@ window.openFolderModal = function(folderId, folderName) {
     }
 };
 
+// フォルダーモーダルのコンテンツのみを更新（メイングリッドには影響しない）
+window.updateFolderModalContent = function(folderId, folderName) {
+    // モーダルが開いていない場合は何もしない
+    if (!elements.folderModal.classList.contains('show')) {
+        return;
+    }
+    
+    // フォルダーIDが一致しない場合も何もしない
+    if (elements.folderModal.dataset.folderId !== folderId) {
+        return;
+    }
+    
+    elements.folderModalTitle.textContent = folderName;
+    
+    // フォルダー内のショートカットを表示
+    const grid = elements.folderModalGrid;
+    grid.innerHTML = '';
+    
+    const folderItems = window.shortcutManager.shortcuts.filter(s => 
+        s.folderId === folderId && !s.isFolder
+    );
+    
+    folderItems.forEach((shortcut, idx) => {
+        const realIndex = window.shortcutManager.shortcuts.indexOf(shortcut);
+        console.log(`Folder item ${idx}: shortcut="${shortcut.name}", realIndex=${realIndex}`);
+        
+        // インデックスが無効な場合はスキップ
+        if (realIndex === -1) {
+            console.error('Shortcut not found in main array:', shortcut);
+            return;
+        }
+        
+        const item = window.shortcutManager.createShortcutElement(shortcut, realIndex);
+        grid.appendChild(item);
+    });
+    
+    // フォルダー内のアイテムにMouseDragManagerを設定
+    if (window.MouseDragManager && folderItems.length > 0) {
+        // フォルダー用のMouseDragManagerインスタンスを作成または再利用
+        if (!window.folderMouseDragManager) {
+            window.folderMouseDragManager = new FolderMouseDragManager(window.shortcutManager, folderId);
+        } else {
+            window.folderMouseDragManager.setFolderId(folderId);
+        }
+        window.folderMouseDragManager.init();
+    }
+};
+
 // モーダル外へのドラッグアウト設定
 function setupModalDragOut(folderId) {
     console.log('Setting up modal drag out for folder:', folderId);

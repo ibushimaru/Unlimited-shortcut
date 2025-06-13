@@ -242,16 +242,27 @@ body {
     align-items: center;
     justify-content: center;
     transition: background-color 0.3s;
+    pointer-events: none; /* Prevent accidental interaction when hidden */
 }
 
 .modal.show {
     display: flex;
+    pointer-events: auto; /* Re-enable interaction when shown */
 }
 
-.modal.modal-drag-out {
+/* ドラッグ中はモーダルの位置を固定 */
+body.dragging .modal {
+    transform: none !important;
+    transition: none !important;
+}
+
+body.dragging .modal * {
+    transform: none !important;
+    transition: none !important;
+}
+
+#folderModal.modal-drag-out {
     background-color: rgba(0, 0, 0, 0.3);
-    border: 3px dashed #1a73e8;
-    box-sizing: border-box;
 }
 
 .modal-content {
@@ -261,6 +272,8 @@ body {
     width: 90%;
     max-width: 400px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    position: relative;
+    transform: none !important;
 }
 
 .modal-content h2 {
@@ -358,6 +371,16 @@ body {
 /* ドラッグ中のスタイル */
 .dragging {
     opacity: 0.5;
+}
+
+/* ボディのドラッグ中状態 - 背景色が変わらないように */
+body.dragging {
+    /* 背景色を変更しない */
+}
+
+/* ダークモード時のドラッグ中も背景色を維持 */
+body.dark-mode.dragging {
+    background-color: #202124 !important;
 }
 
 /* ドラッグ中の元のアイテム（グリッドスペースを保持） */
@@ -581,6 +604,21 @@ body {
     transition: transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
                 opacity 0.35s ease-out,
                 background-color 0.25s ease;
+}
+
+/* ドラッグ中はアニメーションを無効化 */
+body.dragging #shortcutsGrid .shortcut-item,
+#shortcutsGrid.no-animation .shortcut-item {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* ドラッグ中にモーダルが表示されないようにする */
+body.dragging .modal:not(.show) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 /* アニメーション中のグリッド */
@@ -980,6 +1018,16 @@ body.dark-mode .folder-select:focus {
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
+    position: relative;
+    z-index: 1001;
+    transition: none !important;
+}
+
+/* ドラッグ中はモーダルの位置を完全に固定 */
+body.dragging .folder-modal-content {
+    transform: none !important;
+    margin-top: 0 !important;
+    top: auto !important;
 }
 
 .folder-modal-header {
@@ -1040,12 +1088,23 @@ body.dark-mode .folder-select:focus {
     min-height: 200px;
     position: relative;
     transition: background-color 0.2s;
+    padding: 10px;
+    border-radius: 8px;
 }
 
 .folder-modal-grid.folder-drag-over {
     background-color: rgba(26, 115, 232, 0.1);
     border: 2px dashed #1a73e8;
     border-radius: 8px;
+}
+
+/* フォルダー内でのドラッグ時の表示 */
+.folder-modal-grid .shortcut-item {
+    cursor: grab;
+}
+
+.folder-modal-grid .shortcut-item:active {
+    cursor: grabbing;
 }
 
 /* モーダル外へのドラッグ時の表示 */
@@ -1063,19 +1122,52 @@ body.dark-mode .folder-select:focus {
     position: relative;
 }
 
+/* フルスクリーンのドラッグアウトインジケーター */
 .modal.modal-drag-out::before {
     content: '';
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(26, 115, 232, 0.1);
-    border: 3px dashed #1a73e8;
-    border-radius: 12px;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(26, 115, 232, 0.08);
+    border: 8px dashed #1a73e8;
+    box-sizing: border-box;
     pointer-events: none;
     animation: dragOutPulse 1s ease-in-out infinite;
-    z-index: 1;
+    z-index: 999;
+}
+
+/* ドラッグアウト時の追加メッセージ */
+.modal.modal-drag-out::after {
+    content: 'Drop here to move out of folder';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 500;
+    color: #1a73e8;
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 20px 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    z-index: 1002;
+    animation: fadeInScale 0.3s ease-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 @keyframes dragOutPulse {
@@ -1086,6 +1178,7 @@ body.dark-mode .folder-select:focus {
         opacity: 0.8;
     }
 }
+
 
 /* ダークモード - フォルダースタイル */
 body.dark-mode .shortcut-folder .shortcut-icon {
@@ -1132,4 +1225,9 @@ body.dark-mode .folder-title-editable:focus {
 body.dark-mode .modal.modal-drag-out::before {
     background-color: rgba(138, 180, 248, 0.1);
     border-color: #8ab4f8;
+}
+
+body.dark-mode .modal.modal-drag-out::after {
+    color: #8ab4f8;
+    background-color: rgba(32, 33, 36, 0.95);
 }

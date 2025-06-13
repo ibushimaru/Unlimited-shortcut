@@ -20,7 +20,6 @@ class MouseDragManager {
     }
 
     init() {
-        console.log('=== MouseDragManager initialized ===');
         // グローバルイベントは一度だけ登録
         if (!this.globalEventsAttached) {
             document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -45,11 +44,9 @@ class MouseDragManager {
 
         // 各ショートカットアイテムにイベントを設定
         const items = grid.querySelectorAll('.shortcut-item');
-        console.log(`[MouseDragManager] Attaching listeners to ${items.length} items`);
         items.forEach((item, index) => {
             // 追加ボタンはスキップ
             if (item.dataset.isAddButton === 'true') {
-                console.log(`[MouseDragManager] Skipping add button`);
                 return;
             }
             // マウスダウンでドラッグ開始
@@ -118,7 +115,6 @@ class MouseDragManager {
         this.offsetY = e.clientY - rect.top;
         
         e.preventDefault();
-        console.log('Mouse down on item:', this.draggedIndex);
     }
     
     // グリッドを取得するメソッド（サブクラスでオーバーライド可能）
@@ -140,6 +136,17 @@ class MouseDragManager {
                 // 閾値を超えたらドラッグを開始
                 this.isDragging = true;
                 this.hasMoved = true;
+                
+                // ドラッグ中のクラスを追加（アニメーション無効化）
+                document.body.classList.add('dragging');
+                
+                // モーダルが誤って表示されないように確認
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    if (!modal.classList.contains('show') && window.getComputedStyle(modal).display !== 'none') {
+                        modal.style.display = 'none';
+                    }
+                });
                 
                 // 要素の現在の位置を正確に取得
                 const rect = this.draggedElement.getBoundingClientRect();
@@ -167,31 +174,22 @@ class MouseDragManager {
                 // 元の要素をプレースホルダーに置き換える
                 const grid = this.getTargetGrid();
                 if (grid && this.placeholder) {
-                    console.log('[Before Replace] Grid children:', grid.children.length);
-                    console.log('[Before Replace] Dragged element parent:', this.draggedElement.parentNode.tagName);
-                    
                     // プレースホルダーを元の要素の位置に挿入
                     // 親要素が同じか確認してから実行
                     if (this.draggedElement.parentNode === grid) {
                         grid.insertBefore(this.placeholder, this.draggedElement);
                     } else {
-                        console.warn('Dragged element is not in grid, appending placeholder');
                         this.appendPlaceholderToGrid(grid);
                     }
-                    
-                    console.log('[After Insert] Grid children:', grid.children.length);
                     
                     // 元の要素を一時的にグリッドから削除（親要素を確認してから）
                     if (this.draggedElement.parentNode === grid) {
                         grid.removeChild(this.draggedElement);
                     } else {
-                        console.warn('Dragged element parent mismatch, removing from actual parent');
                         if (this.draggedElement.parentNode) {
                             this.draggedElement.parentNode.removeChild(this.draggedElement);
                         }
                     }
-                    
-                    console.log('[After Remove] Grid children:', grid.children.length);
                     
                     // bodyに追加して完全に非表示にする
                     this.draggedElement.style.display = 'none';
@@ -203,49 +201,7 @@ class MouseDragManager {
                     this.draggedElement.style.height = '0';
                     this.draggedElement.classList.add('dragging-original');
                     document.body.appendChild(this.draggedElement);
-                    
-                    // 詳細なデバッグ：グリッド内の全要素を確認
-                    console.log('=== DRAG START DEBUG ===');
-                    console.log('[Drag Start] Grid children count:', grid.children.length);
-                    
-                    // 各要素を詳細に調査
-                    Array.from(grid.children).forEach((child, index) => {
-                        const info = {
-                            index: index,
-                            classes: child.className,
-                            display: child.style.display,
-                            visibility: child.style.visibility,
-                            width: child.style.width || child.offsetWidth + 'px',
-                            height: child.style.height || child.offsetHeight + 'px',
-                            dataIndex: child.dataset.index,
-                            isAddButton: child.dataset.isAddButton,
-                            isPlaceholder: child.classList.contains('shortcut-placeholder'),
-                            isSpacer: child.classList.contains('grid-spacer')
-                        };
-                        console.log(`[Grid Child ${index}]:`, info);
-                    });
-                    
-                    console.log('[Drag Start] Placeholder in grid:', grid.contains(this.placeholder));
-                    console.log('[Drag Start] Dragged element in grid:', grid.contains(this.draggedElement));
-                    
-                    // プレースホルダーの数を確認
-                    const allPlaceholders = grid.querySelectorAll('.shortcut-placeholder');
-                    console.log('[Drag Start] Total placeholders in grid:', allPlaceholders.length);
-                    if (allPlaceholders.length > 1) {
-                        console.error('WARNING: Multiple placeholders detected!');
-                        allPlaceholders.forEach((ph, idx) => {
-                            console.log(`Placeholder ${idx}:`, {
-                                parent: ph.parentNode.tagName,
-                                classes: ph.className,
-                                isSame: ph === this.placeholder
-                            });
-                        });
-                    }
-                    
-                    console.log('=== END DRAG START DEBUG ===');
                 }
-                
-                console.log('Drag started after threshold');
             }
         }
 
@@ -328,8 +284,6 @@ class MouseDragManager {
                             const itemWidth = 112; // ショートカットアイテムの幅
                             const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
                             
-                            console.log(`[MouseDrag] Grid columns: ${columns}, width: ${gridRect.width}, gap: ${gap}`);
-                            
                             // ターゲット要素のDOM上の位置を取得
                             const allVisibleItems = Array.from(grid.children).filter(child => 
                                 child.classList.contains('shortcut-item') && 
@@ -341,8 +295,6 @@ class MouseDragManager {
                             const targetColumn = targetDomIndex % columns;
                             const isRightEdge = targetColumn === columns - 1;
                             const isLastItem = targetDomIndex === allVisibleItems.length - 1;
-                            
-                            console.log(`[MouseDrag] Target: index=${targetDomIndex}, column=${targetColumn}, isRightEdge=${isRightEdge}, isLastItem=${isLastItem}`);
                             
                             // ドラッグ元とターゲットのインデックスを比較
                             const draggedDomIndex = allVisibleItems.findIndex(item => 
@@ -401,13 +353,11 @@ class MouseDragManager {
 
         // 実際にドラッグが発生した場合の処理
         if (this.isDragging && this.hasMoved) {
-            console.log('Mouse drag ended');
 
             // ドロップ先を検出
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
             
             if (!elementBelow) {
-                console.log('No element below, cancelling drop');
                 this.cleanup();
                 return;
             }
@@ -416,33 +366,29 @@ class MouseDragManager {
             if (elementBelow.classList.contains('folder-item')) {
                 const folderId = elementBelow.dataset.folderId;
                 if (folderId) {
-                    console.log('Dropping on folder:', folderId);
                     
                     // 元の要素を削除（moveShortcutToFolderとrenderで新しく作成されるため）
                     if (this.draggedElement && this.draggedElement.parentNode) {
                         this.draggedElement.parentNode.removeChild(this.draggedElement);
                     }
                     
-                    this.shortcutManager.moveShortcutToFolder(this.draggedIndex, folderId).then(() => {
-                        console.log('Move to folder completed, cleaning up');
+                    this.shortcutManager.moveShortcutToFolder(this.draggedIndex, folderId, true).then(() => {
                         this.cleanupAfterReorder();
+                        // Render after cleanup with animation disabled
+                        this.shortcutManager.render({ skipAnimation: true });
                     });
                     this.cleanupHandled = true;
                 }
             }
             // プレースホルダー（ドロップゾーン）にドロップした場合
             else if (elementBelow === this.placeholder || elementBelow.classList.contains('drop-zone')) {
-                console.log('Dropped on placeholder/drop zone');
                 if (this.pendingInsertIndex !== null && this.pendingInsertIndex !== undefined) {
                     // ビジュアル位置からデータインデックスに変換
                     const visualIndex = this.pendingInsertIndex;
                     const dataIndex = this.convertVisualIndexToDataIndex(visualIndex);
                     
-                    console.log(`Drop calculation: draggedIndex=${this.draggedIndex}, visualIndex=${visualIndex}, dataIndex=${dataIndex}`);
-                    
                     // 同じ位置への移動でない場合のみ実行
                     if (dataIndex !== this.draggedIndex) {
-                        console.log('Reordering from', this.draggedIndex, 'to', dataIndex);
                         
                         // 元の要素を削除（reorderとrenderで新しく作成されるため）
                         if (this.draggedElement && this.draggedElement.parentNode) {
@@ -451,17 +397,12 @@ class MouseDragManager {
                         
                         // reorderを実行し、完了を待つ
                         this.shortcutManager.reorder(this.draggedIndex, dataIndex).then(() => {
-                            console.log('Reorder completed, cleaning up');
                             // 元の要素は既に削除されているので、プレースホルダーのクリーンアップのみ
                             this.cleanupAfterReorder();
                         });
                         // cleanup()の重複実行を防ぐためフラグを設定
                         this.cleanupHandled = true;
-                    } else {
-                        console.log('Same position drop, skipping reorder');
                     }
-                } else {
-                    console.log('No pending insert index, skipping drop');
                 }
             }
             // ショートカットにドロップした場合
@@ -469,10 +410,6 @@ class MouseDragManager {
                 const targetIndex = parseInt(elementBelow.dataset.index);
                 
                 if (targetIndex !== this.draggedIndex) {
-                    console.log('=== MOUSE DROP DETECTED ===');
-                    console.log('From:', this.draggedIndex, 'To:', targetIndex);
-                    console.log('Current drop mode:', this.currentDropMode);
-                    console.log('Pending insert index:', this.pendingInsertIndex);
                     
                     // ドロップモードに基づいて処理
                     if (this.currentDropMode === 'reorder') {
@@ -482,26 +419,15 @@ class MouseDragManager {
                             const visualIndex = this.pendingInsertIndex;
                             const dataIndex = this.convertVisualIndexToDataIndex(visualIndex);
                             
-                            console.log(`[handleMouseUp] Reorder calculation:`, {
-                                visualIndex,
-                                dataIndex,
-                                draggedIndex: this.draggedIndex,
-                                totalItems: this.shortcutManager.shortcuts.length,
-                                valid: dataIndex >= 0 && dataIndex <= this.shortcutManager.shortcuts.length,
-                                dataIndexType: typeof dataIndex,
-                                draggedIndexType: typeof this.draggedIndex
-                            });
-                            
                             // 同じ位置への移動の場合はスキップ
                             if (dataIndex === this.draggedIndex) {
-                                console.log('Same position drop in reorder mode, skipping');
+                                // Same position, skip
                             }
                             // インデックスの範囲チェック
                             else if (dataIndex >= 0 && 
                                 dataIndex <= this.shortcutManager.shortcuts.length &&
                                 this.draggedIndex >= 0 &&
                                 this.draggedIndex < this.shortcutManager.shortcuts.length) {
-                                console.log('Reordering from', this.draggedIndex, 'to', dataIndex);
                                 
                                 // 元の要素を削除（reorderとrenderで新しく作成されるため）
                                 if (this.draggedElement && this.draggedElement.parentNode) {
@@ -510,23 +436,11 @@ class MouseDragManager {
                                 
                                 // reorderを実行し、完了を待つ
                                 this.shortcutManager.reorder(this.draggedIndex, dataIndex).then(() => {
-                                    console.log('Reorder completed, cleaning up');
                                     // 元の要素は既に削除されているので、プレースホルダーのクリーンアップのみ
                                     this.cleanupAfterReorder();
                                 });
                                 // cleanup()の重複実行を防ぐためフラグを設定
                                 this.cleanupHandled = true;
-                            } else {
-                                console.warn('Invalid reorder index:', dataIndex, 'Total items:', this.shortcutManager.shortcuts.length);
-                                console.warn('Validation details:', {
-                                    'dataIndex !== this.draggedIndex': dataIndex !== this.draggedIndex,
-                                    'dataIndex >= 0': dataIndex >= 0,
-                                    'dataIndex <= length': dataIndex <= this.shortcutManager.shortcuts.length,
-                                    'draggedIndex >= 0': this.draggedIndex >= 0,
-                                    'draggedIndex < length': this.draggedIndex < this.shortcutManager.shortcuts.length,
-                                    'draggedIndex': this.draggedIndex,
-                                    'dataIndex': dataIndex
-                                });
                             }
                         }
                     } else if (this.currentDropMode === 'folder') {
@@ -537,45 +451,32 @@ class MouseDragManager {
                         if (draggedShortcut && targetShortcut) {
                             // フォルダーをフォルダーにドロップしようとした場合は何もしない
                             if (draggedShortcut.isFolder && targetShortcut.isFolder) {
-                                console.log('Cannot drop folder onto folder - operation rejected');
                                 // 何もしない（フォルダーの中にフォルダーは作れない）
                             }
                             // 両方がショートカットの場合はフォルダー作成
                             else if (!draggedShortcut.isFolder && !targetShortcut.isFolder) {
-                                console.log('Creating folder from shortcuts');
                                 // インデックスの範囲チェック
                                 if (this.draggedIndex >= 0 && this.draggedIndex < this.shortcutManager.shortcuts.length &&
                                     targetIndex >= 0 && targetIndex < this.shortcutManager.shortcuts.length) {
                                     this.shortcutManager.createFolderFromShortcuts(this.draggedIndex, targetIndex).then(() => {
-                                        console.log('Folder creation completed, cleaning up');
                                         this.cleanup();
                                     });
                                     this.cleanupHandled = true;
-                                } else {
-                                    console.error('Invalid indices for folder creation:', this.draggedIndex, targetIndex);
                                 }
                             }
                             // フォルダーにショートカットを追加
                             else if (targetShortcut.isFolder && !draggedShortcut.isFolder) {
-                                console.log('Adding shortcut to folder');
-                                console.log('DraggedIndex:', this.draggedIndex, 'TargetIndex:', targetIndex);
-                                console.log('TargetShortcut:', targetShortcut);
-                                console.log('Total shortcuts before:', this.shortcutManager.shortcuts.length);
                                 // ドラッグインデックスが範囲内か確認
                                 if (this.draggedIndex < this.shortcutManager.shortcuts.length) {
                                     this.shortcutManager.addShortcutToFolder(this.draggedIndex, targetShortcut.folderId).then(() => {
-                                        console.log('Add to folder completed, cleaning up');
                                         this.cleanup();
                                     });
                                     this.cleanupHandled = true;
-                                } else {
-                                    console.error('Dragged index out of range:', this.draggedIndex);
                                 }
                             }
                         }
                     } else if (this.currentDropMode === null) {
                         // ドロップモードがnullの場合（フォルダーへのフォルダードロップなど）
-                        console.log('Drop mode is null - operation rejected');
                         // 拒否されたドロップでも要素を即座に復元する必要がある
                         this.cleanup();
                         this.cleanupHandled = true;
@@ -1034,6 +935,9 @@ class MouseDragManager {
         this.isDragging = false;
         this.currentDropMode = null;
         this.originalItemPositions.clear();
+        
+        // ドラッグ中のクラスを削除
+        document.body.classList.remove('dragging');
     }
     
     cleanup() {
@@ -1112,6 +1016,9 @@ class MouseDragManager {
         this.isDragging = false;
         this.currentDropMode = null;
         this.originalItemPositions.clear();
+        
+        // ドラッグ中のクラスを削除
+        document.body.classList.remove('dragging');
     }
     
     cancelDrag() {
@@ -1151,7 +1058,6 @@ class FolderMouseDragManager extends MouseDragManager {
     }
     
     init() {
-        console.log('=== FolderMouseDragManager initialized for folder:', this.folderId);
         this.modalGrid = document.getElementById('folderModalGrid');
         
         // グローバルイベントは親クラスと共有
@@ -1177,7 +1083,6 @@ class FolderMouseDragManager extends MouseDragManager {
         
         // フォルダー内の各ショートカットアイテムにイベントを設定
         const items = this.modalGrid.querySelectorAll('.shortcut-item');
-        console.log(`[FolderMouseDragManager] Attaching listeners to ${items.length} folder items`);
         items.forEach((item) => {
             // 既存のイベントリスナーを削除（重複防止）
             const newItem = item.cloneNode(true);
@@ -1208,6 +1113,9 @@ class FolderMouseDragManager extends MouseDragManager {
                 this.isDragging = true;
                 this.hasMoved = true;
                 
+                // ドラッグ中のクラスを追加（アニメーション無効化）
+                document.body.classList.add('dragging');
+                
                 // 親クラスのドラッグ開始処理を呼び出す
                 this.startDragVisuals(e);
             }
@@ -1224,12 +1132,14 @@ class FolderMouseDragManager extends MouseDragManager {
         const modal = document.getElementById('folderModal');
         const modalContent = modal ? modal.querySelector('.folder-modal-content') : null;
         
-        if (this.isDragging && modal && modalContent) {
+        // フォルダーモーダルが実際に表示されている場合のみ処理
+        if (this.isDragging && modal && modalContent && modal.classList.contains('show')) {
             // ホバー中の要素を検出
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
             
-            // モーダル背景（暗い部分）にドラッグしている場合
-            if (!modalContent.contains(elementBelow) && modal.contains(elementBelow)) {
+            // モーダルコンテンツの外にドラッグしている場合
+            // elementBelowがnullの場合も含む（画面外など）
+            if (!elementBelow || !modalContent.contains(elementBelow)) {
                 modal.classList.add('modal-drag-out');
                 this.currentDropMode = 'drag-out';
                 this.clearHoverEffects();
@@ -1303,7 +1213,6 @@ class FolderMouseDragManager extends MouseDragManager {
             if (this.draggedElement.parentNode === grid) {
                 grid.insertBefore(this.placeholder, this.draggedElement);
             } else {
-                console.warn('Dragged element is not in grid, appending placeholder');
                 this.appendPlaceholderToGrid(grid);
             }
             
@@ -1325,8 +1234,6 @@ class FolderMouseDragManager extends MouseDragManager {
             this.draggedElement.classList.add('dragging-original');
             document.body.appendChild(this.draggedElement);
         }
-        
-        console.log('Drag started in folder modal');
     }
     
     
@@ -1339,22 +1246,29 @@ class FolderMouseDragManager extends MouseDragManager {
         
         if (this.currentDropMode === 'drag-out' && modal && modalContent) {
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
-            if (!modalContent.contains(elementBelow) && modal.contains(elementBelow)) {
+            // elementBelowがnullまたはmodalContent外の場合はドラッグアウト成功
+            if (!elementBelow || !modalContent.contains(elementBelow)) {
                 // フォルダーから外に移動
-                console.log('[FolderMouseDragManager] Moving item out of folder');
-                this.shortcutManager.moveShortcutToFolder(this.draggedIndex, null).then(() => {
-                    // モーダルを更新
+                // First update the modal content without re-rendering the main grid
+                this.shortcutManager.moveShortcutToFolder(this.draggedIndex, null, true).then(() => {
+                    // Update the folder modal content only
                     const folderStillExists = this.shortcutManager.shortcuts.some(s => 
                         s.isFolder && s.folderId === this.folderId
                     );
                     if (folderStillExists && window.openFolderModal) {
                         const folderName = document.getElementById('folderModalTitle').textContent;
-                        window.openFolderModal(this.folderId, folderName);
+                        // Update modal content without affecting main grid
+                        window.updateFolderModalContent(this.folderId, folderName);
                     } else {
                         // フォルダーが削除された場合はモーダルを閉じる
                         modal.style.display = 'none';
                         document.body.style.overflow = '';
                     }
+                    
+                    // Render the main grid after modal update with animation disabled
+                    setTimeout(() => {
+                        this.shortcutManager.render({ skipAnimation: true });
+                    }, 50);
                 });
                 modal.classList.remove('modal-drag-out');
                 this.cleanup();
@@ -1385,7 +1299,6 @@ class FolderMouseDragManager extends MouseDragManager {
     }
     
     reorderItemsInFolder(newVisualIndex) {
-        console.log('[FolderMouseDragManager] Reordering in folder, new position:', newVisualIndex);
         
         // フォルダー内のアイテムを取得
         const folderItems = this.shortcutManager.shortcuts.filter(s => 
@@ -1397,7 +1310,6 @@ class FolderMouseDragManager extends MouseDragManager {
         const currentFolderIndex = folderItems.indexOf(draggedItem);
         
         if (currentFolderIndex === -1 || currentFolderIndex === newVisualIndex) {
-            console.log('[FolderMouseDragManager] No reorder needed');
             return;
         }
         
@@ -1459,30 +1371,19 @@ class FolderMouseDragManager extends MouseDragManager {
     
     // オーバーライド: フォルダー内での挿入マーカー表示
     showInsertMarker(targetElement, insertBefore) {
-        console.log('=== FOLDER SHOW INSERT MARKER ===');
         const grid = this.getTargetGrid();
         const modalGrid = document.getElementById('folderModalGrid');
         
         // プレースホルダーがなければエラー（ドラッグ開始時に作成されているはず）
         if (!this.placeholder) {
-            console.error('Placeholder should exist at this point');
             return;
         }
         
         // ターゲット要素がフォルダーモーダルグリッド内にない場合はスキップ
-        // より柔軟な検証: modalGrid内のどこかにあるかチェック
         if (!modalGrid || !modalGrid.contains(targetElement)) {
-            console.warn('Target element is not in folder modal grid, skipping insert marker');
             return;
         }
         
-        console.log('[FolderShowMarker] Target element:', {
-            index: targetElement.dataset.index,
-            classes: targetElement.className,
-            insertBefore: insertBefore,
-            inGrid: grid.contains(targetElement),
-            inModalGrid: modalGrid.contains(targetElement)
-        });
         
         // プレースホルダーにドロップゾーンクラスを追加
         this.placeholder.classList.add('drop-zone');
@@ -1491,7 +1392,6 @@ class FolderMouseDragManager extends MouseDragManager {
         this.insertPlaceholderAtTarget(grid, targetElement, insertBefore);
         
         // フォルダー内でのアイテム移動は特別な処理不要（プレースホルダーが位置を示す）
-        console.log('=== END FOLDER SHOW INSERT MARKER ===');
     }
 }
 
