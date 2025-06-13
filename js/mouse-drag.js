@@ -692,16 +692,23 @@ class MouseDragManager {
             // 移動方向を決定する新しいロジック
             let targetPosition = visualIndex;
             
-            // 移動ロジック：
-            // 1. プレースホルダーがアイテムの前に挿入された場合 → アイテムは右に移動
-            // 2. プレースホルダーがアイテムの後に挿入された場合 → アイテムは移動しない
+            // 移動ロジック：元の実装に戻す
+            // プレースホルダーの位置とドラッグ元の位置に基づいて移動方向を決定
             
             if (draggedOriginalPos !== undefined) {
-                // プレースホルダーより前にあるアイテムはそのまま
-                // プレースホルダー以降のアイテムは右に移動
-                if (visualIndex >= placeholderIndex) {
+                if (draggedOriginalPos < originalPos && placeholderIndex <= originalPos) {
+                    // ドラッグアイテムが前から移動してきて、プレースホルダーがこのアイテムの前にある
+                    // → このアイテムは左に移動（元の位置 - 1）
+                    targetPosition = visualIndex > 0 ? visualIndex - 1 : 0;
+                    console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves left to ${targetPosition}`);
+                } else if (draggedOriginalPos > originalPos && placeholderIndex > originalPos) {
+                    // ドラッグアイテムが後ろから移動してきて、プレースホルダーがこのアイテムの後ろにある
+                    // → このアイテムは右に移動（元の位置 + 1）
                     targetPosition = visualIndex + 1;
                     console.log(`[moveItems] Item ${itemDataIndex} at ${visualIndex} moves right to ${targetPosition}`);
+                } else {
+                    // その他の場合は移動しない
+                    targetPosition = visualIndex;
                 }
             }
             
