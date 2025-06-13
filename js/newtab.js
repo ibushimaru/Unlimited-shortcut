@@ -351,9 +351,18 @@ function setupModalDragOut(folderId) {
         console.log('Drag start event:', e.target, 'Closest shortcut:', shortcutItem);
         
         if (shortcutItem) {
+            const index = parseInt(shortcutItem.dataset.index);
+            
+            // インデックスの妥当性チェック
+            if (isNaN(index) || index < 0 || index >= window.shortcutManager.shortcuts.length) {
+                console.error('Invalid index in modal drag start:', index);
+                return;
+            }
+            
             isDraggingFromModal = true;
-            currentDraggedIndex = parseInt(shortcutItem.dataset.index);
+            currentDraggedIndex = index;
             console.log('Dragging from modal, index:', currentDraggedIndex);
+            console.log('Total shortcuts at drag start:', window.shortcutManager.shortcuts.length);
             
             // ドラッグデータを明示的に設定
             e.dataTransfer.effectAllowed = 'move';
@@ -389,6 +398,19 @@ function setupModalDragOut(folderId) {
             // インデックスの範囲チェック
             if (currentDraggedIndex >= 0 && currentDraggedIndex < window.shortcutManager.shortcuts.length) {
                 try {
+                    // ドラッグされたショートカットが実際に存在するか確認
+                    const draggedShortcut = window.shortcutManager.shortcuts[currentDraggedIndex];
+                    if (!draggedShortcut) {
+                        console.error('Dragged shortcut not found at index:', currentDraggedIndex);
+                        return;
+                    }
+                    
+                    // ドラッグされたアイテムが実際にこのフォルダーに属しているか確認
+                    if (draggedShortcut.folderId !== folderId) {
+                        console.error('Dragged item does not belong to this folder:', draggedShortcut);
+                        return;
+                    }
+                    
                     // フォルダーから外に移動
                     window.shortcutManager.moveShortcutToFolder(currentDraggedIndex, null);
                     
