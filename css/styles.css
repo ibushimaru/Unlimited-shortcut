@@ -39,7 +39,11 @@ body {
     caret-color: auto !important;
 }
 
-/* ショートカット検索バーはフォーカス時のみカーソル表示 */
+/* ショートカット検索バーのカーソル制御 */
+.shortcut-search {
+    caret-color: transparent !important;
+}
+
 .shortcut-search:focus {
     caret-color: auto !important;
 }
@@ -51,8 +55,7 @@ body {
 
 /* 検索バーのフォーカス時のアウトライン */
 .search-input:focus {
-    outline: 2px solid #1a73e8;
-    outline-offset: -2px;
+    outline: none;
 }
 
 /* 検索バー */
@@ -75,11 +78,17 @@ body {
     border-radius: 24px;
     height: 46px;
     padding: 0 20px;
-    transition: box-shadow 0.2s;
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
 
 .search-box:hover {
     box-shadow: 0 1px 6px rgba(32,33,36,.28);
+}
+
+/* 検索バーにフォーカスがある時のスタイル */
+.search-box:focus-within {
+    box-shadow: 0 1px 6px rgba(32,33,36,.28);
+    border-color: #1a73e8;
 }
 
 .search-input {
@@ -138,7 +147,7 @@ body {
     padding: 16px 8px;
     border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.2s;
+    transition: background-color 0.2s; /* transformは削除 - JavaScriptで制御 */
     position: relative;
     width: 112px;
     height: 112px;
@@ -153,11 +162,11 @@ body {
 /* ケバブメニュー */
 .kebab-menu {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
+    top: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     background-color: transparent;
     border: none;
     cursor: pointer;
@@ -165,7 +174,7 @@ body {
     align-items: center;
     justify-content: center;
     transition: background-color 0.2s, opacity 0.2s;
-    opacity: 0.7;
+    opacity: 0.8;
 }
 
 .shortcut-item:hover .kebab-menu {
@@ -178,8 +187,8 @@ body {
 }
 
 .kebab-menu svg {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     fill: #5f6368;
 }
 
@@ -426,8 +435,9 @@ body.dark-mode.dragging {
 }
 
 .drag-over {
-    background-color: #e8f0fe;
-    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    background-color: rgba(26, 115, 232, 0.1);
+    box-shadow: 0 0 0 2px #1a73e8;
+    transition: all 0.2s ease;
     transform: scale(1.02);
 }
 
@@ -447,7 +457,7 @@ body.dark-mode.dragging {
     height: 80%;
     border: 2px dashed #1a73e8;
     border-radius: 12px;
-    background-color: rgba(26, 115, 232, 0.1);
+    background-color: rgba(26, 115, 232, 0.15);
     z-index: -1;
     animation: folderCreatePulse 1.5s ease-in-out infinite;
 }
@@ -469,9 +479,10 @@ body.dark-mode.dragging {
 
 /* フォルダーへのドラッグオーバー */
 .folder-drag-over {
-    background-color: rgba(26, 115, 232, 0.1);
-    box-shadow: 0 0 0 2px #1a73e8;
+    background-color: rgba(26, 115, 232, 0.15);
+    box-shadow: 0 0 0 3px #1a73e8;
     transition: all 0.2s ease;
+    transform: scale(1.05);
 }
 
 /* フォルダーへのフォルダードロップ拒否 */
@@ -486,7 +497,8 @@ body.dark-mode.dragging {
 .shortcut-folder.folder-hover {
     transform: scale(1.05);
     box-shadow: 0 0 0 3px #1a73e8;
-    background-color: rgba(26, 115, 232, 0.08);
+    background-color: rgba(26, 115, 232, 0.15);
+    transition: all 0.2s ease;
 }
 
 .shortcut-folder.folder-hover .folder-icon-grid {
@@ -504,22 +516,38 @@ body.dark-mode.dragging {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: border 0.2s ease, background-color 0.2s ease;
     /* サイズを明示的に設定 */
     width: 112px !important;
     height: 112px !important;
     flex-shrink: 0;
     margin: 0 !important;
     padding: 0 !important;
+    caret-color: transparent !important;
+    /* プレースホルダー自体にもアニメーション */
+    animation: placeholder-pulse 1.5s ease-in-out infinite;
+    z-index: 5;
+}
+
+@keyframes placeholder-pulse {
+    0%, 100% {
+        opacity: 0.5;
+        transform: scale(0.98);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
 }
 
 /* ドロップゾーン（移動先の位置） */
 .shortcut-placeholder.drop-zone {
-    background-color: transparent;
+    background-color: rgba(26, 115, 232, 0.08);
     border: 2px solid #1a73e8;
     border-radius: 8px;
-    animation: fadeIn 0.4s ease-out;
-    opacity: 0.8;
+    animation: fadeIn 0.3s ease-out;
+    opacity: 1;
+    caret-color: transparent !important;
 }
 
 @keyframes fadeIn {
@@ -528,7 +556,7 @@ body.dark-mode.dragging {
         transform: scale(0.95);
     }
     to {
-        opacity: 0.8;
+        opacity: 1;
         transform: scale(1);
     }
 }
@@ -538,7 +566,7 @@ body.dark-mode.dragging {
     position: absolute;
     width: 60%;
     height: 60%;
-    background-color: rgba(26, 115, 232, 0.1);
+    background-color: rgba(26, 115, 232, 0.15);
     border-radius: 50%;
     animation: dropZonePulse 1.5s ease-in-out infinite;
 }
@@ -562,7 +590,7 @@ body.dark-mode.dragging {
 .shortcut-item.folder-hover {
     background-color: rgba(26, 115, 232, 0.15);
     transform: scale(1.05);
-    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.3);
+    box-shadow: 0 0 0 3px #1a73e8;
     transition: all 0.2s ease;
 }
 
@@ -636,16 +664,59 @@ body.dark-mode.dragging {
 }
 
 .shortcut-item {
-    transition: transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
-                opacity 0.35s ease-out,
+    /* デフォルトは軽量なトランジション */
+    transition: opacity 0.25s ease-out,
                 background-color 0.25s ease;
 }
 
-/* ドラッグ中はアニメーションを無効化 */
-body.dragging #shortcutsGrid .shortcut-item,
+
+
+/* ドラッグ中の元の要素のみアニメーションを無効化 */
+body.dragging #shortcutsGrid .shortcut-item.dragging-original {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* no-animationクラスが付いている場合のみアニメーションを無効化 */
 #shortcutsGrid.no-animation .shortcut-item {
     transition: none !important;
     animation: none !important;
+}
+
+/* ドラッグ中はデフォルトのtransitionを無効化（FLIPアニメーションと競合するため） */
+body.dragging #shortcutsGrid .shortcut-item:not(.position-changing),
+body.dragging #folderModalGrid .shortcut-item:not(.position-changing) {
+    transition: background-color 0.2s !important; /* transformのtransitionは削除 */
+    transform: none !important; /* 予期しないtransformを防ぐ */
+}
+
+/* プレースホルダー挿入時のアイテムシフトアニメーション */
+body.dragging #shortcutsGrid .shortcut-item:not(.dragging-original):not(.shortcut-placeholder),
+body.dragging #folderModalGrid .shortcut-item:not(.dragging-original):not(.shortcut-placeholder) {
+    will-change: transform;
+}
+
+
+/* 位置が変わる時のエフェクト */
+body.dragging #shortcutsGrid .shortcut-item.position-changing {
+    z-index: 10 !important;
+    position: relative !important;
+}
+
+/* 移動中のアイテムの影を軽減 */
+body.dragging #shortcutsGrid .shortcut-item.position-changing {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+
+/* position-changingクラスを持つアイテムはアニメーション中に前面に表示 */
+#shortcutsGrid .shortcut-item.position-changing,
+#folderModalGrid .shortcut-item.position-changing {
+    /* アニメーション中は前面に表示 */
+    z-index: 100 !important;
+    position: relative !important;
+    /* ドロップシャドウで浮いている感じを演出 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* ドラッグ中にモーダルが表示されないようにする */
@@ -718,9 +789,10 @@ body.dragging .modal:not(.show) {
 
 /* 範囲選択されたアイテム */
 .shortcut-item.range-selected {
-    background-color: #e8f0fe;
+    background-color: rgba(26, 115, 232, 0.1);
     box-shadow: 0 0 0 2px #1a73e8;
     transform: scale(1.02);
+    transition: all 0.2s ease;
 }
 
 .shortcut-item.range-selected .shortcut-icon {
@@ -741,7 +813,8 @@ body.dragging .modal:not(.show) {
 
 .drag-reorder {
     border: 2px solid #1a73e8;
-    background-color: #f1f3f4;
+    background-color: rgba(26, 115, 232, 0.08);
+    transition: all 0.2s ease;
 }
 
 /* 挿入位置の表示 - 削除 */
@@ -1068,6 +1141,7 @@ body.dark-mode .folder-select:focus {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    caret-color: transparent !important;
 }
 
 .folder-modal-header h2 {
@@ -1081,9 +1155,13 @@ body.dark-mode .folder-select:focus {
     transition: border-color 0.2s, background-color 0.2s;
     cursor: text;
     outline: none;
+    caret-color: transparent !important;
 }
 
-/* Note: caret-color is already handled by the global [contenteditable] rules */
+/* フォルダータイトルが編集可能でフォーカスされた時のみカーソル表示 */
+.folder-title-editable[contenteditable="true"]:focus {
+    caret-color: auto !important;
+}
 
 .folder-title-editable:hover {
     background-color: #f1f3f4;
@@ -1110,6 +1188,7 @@ body.dark-mode .folder-select:focus {
     justify-content: center;
     border-radius: 50%;
     transition: background-color 0.2s;
+    caret-color: transparent !important;
     user-select: none;
 }
 
@@ -1129,18 +1208,29 @@ body.dark-mode .folder-select:focus {
 }
 
 .folder-modal-grid.folder-drag-over {
-    background-color: rgba(26, 115, 232, 0.1);
+    background-color: rgba(26, 115, 232, 0.08);
     border: 2px dashed #1a73e8;
     border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 /* フォルダー内でのドラッグ時の表示 */
 .folder-modal-grid .shortcut-item {
     cursor: grab;
+    transition: transform 0.25s cubic-bezier(0.4, 0.0, 0.2, 1),
+                opacity 0.25s ease-out,
+                background-color 0.2s ease;
 }
 
 .folder-modal-grid .shortcut-item:active {
     cursor: grabbing;
+}
+
+/* フォルダー内でもドラッグ中のアイテムは滑らかに移動 */
+body.dragging .folder-modal-grid .shortcut-item:not(.dragging-original) {
+    transition: transform 0.25s cubic-bezier(0.4, 0.0, 0.2, 1),
+                opacity 0.25s ease-out,
+                background-color 0.2s ease;
 }
 
 /* モーダル外へのドラッグ時の表示 */

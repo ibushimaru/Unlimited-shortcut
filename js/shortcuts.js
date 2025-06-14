@@ -586,13 +586,7 @@ class ShortcutManager {
             grid.appendChild(item);
         });
 
-        // 最後のアイテムと追加ボタンの間にスペーサーを追加
-        const spacer = document.createElement('div');
-        spacer.className = 'grid-spacer';
-        spacer.style.width = '112px';
-        spacer.style.height = '112px';
-        spacer.style.visibility = 'hidden'; // スペースは占有するが見えない
-        grid.appendChild(spacer);
+        // スペーサーは削除（不要）
         
         // 追加ボタンを最後に追加（必ず最後になるように）
         const addButton = document.createElement('div');
@@ -786,7 +780,32 @@ class ShortcutManager {
                     // フォルダーをクリックしたら開く
                     this.openFolder(shortcut.folderId);
                 } else {
-                    window.location.href = shortcut.url;
+                    // Chromeの制限されたURLへのナビゲーションを防ぐ
+                    const restrictedUrls = [
+                        'chrome://',
+                        'chrome-extension://',
+                        'about:',
+                        'javascript:',
+                        'data:',
+                        'file:'
+                    ];
+                    
+                    const isRestricted = restrictedUrls.some(prefix => 
+                        shortcut.url.toLowerCase().startsWith(prefix)
+                    );
+                    
+                    if (isRestricted) {
+                        console.warn('Restricted URL blocked:', shortcut.url);
+                        // 代わりに新しいタブで開く試み
+                        chrome.tabs.create({ url: shortcut.url }, (tab) => {
+                            if (chrome.runtime.lastError) {
+                                console.error('Failed to open restricted URL:', chrome.runtime.lastError);
+                                alert('このURLは開けません: ' + shortcut.url);
+                            }
+                        });
+                    } else {
+                        window.location.href = shortcut.url;
+                    }
                 }
             }
         });

@@ -17,6 +17,25 @@ class MouseDragManager {
         this.isDisabled = false; // 範囲選択時などにドラッグを無効化
         this.dragClone = null; // ドラッグ中のクローン要素
         this.originalItemPositions = new Map(); // ドラッグ開始時の各アイテムの位置
+        
+        // スムーズアニメーション用の新しいプロパティ
+        this.targetX = 0;
+        this.targetY = 0;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.animationFrame = null;
+        this.smoothingFactor = 0.15; // 滑らかさの係数（Reduce Motion対応）
+        
+        // アニメーションのスロットリング用
+        this.lastPlaceholderPosition = null;
+        this.isAnimating = false;
+        this.animatingElements = new Set();
+        this.lastAnimationTime = 0;
+        this.animationThrottle = 60; // ミリ秒 - 垂直移動用のスロットリング
+        this.horizontalThrottle = 10; // ミリ秒 - 水平移動用（ほぼリアルタイム）
+        
+        // Reduce Motion設定を確認
+        this.prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
     init() {
@@ -162,20 +181,27 @@ class MouseDragManager {
                 // クローン要素を作成してドラッグ（元の要素は位置を保持）
                 if (!this.dragClone) {
                     this.dragClone = this.draggedElement.cloneNode(true);
-                    this.dragClone.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                    // CSSトランジションは削除（JavaScriptアニメーションと競合するため）
                     this.dragClone.style.position = 'fixed';
                     this.dragClone.style.zIndex = '9999';
-                    this.dragClone.style.opacity = '0.85';
+                    this.dragClone.style.opacity = '0.9';
                     this.dragClone.style.cursor = 'grabbing';
                     this.dragClone.style.pointerEvents = 'none';
-                    this.dragClone.style.transform = 'scale(1.05)';
-                    this.dragClone.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+                    this.dragClone.style.transform = 'scale(1.1)';
+                    this.dragClone.style.boxShadow = '0 12px 32px rgba(0,0,0,0.25)';
                     document.body.appendChild(this.dragClone);
                 }
                 
-                // クローンの位置を設定
-                this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
-                this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+                // 初期位置を設定
+                this.currentX = e.clientX - this.offsetX;
+                this.currentY = e.clientY - this.offsetY;
+                this.targetX = this.currentX;
+                this.targetY = this.currentY;
+                this.dragClone.style.left = `${this.currentX}px`;
+                this.dragClone.style.top = `${this.currentY}px`;
+                
+                // スムーズアニメーションを開始
+                this.startSmoothAnimation();
                 
                 // 元の要素をプレースホルダーに置き換える
                 const grid = this.getTargetGrid();
@@ -187,6 +213,15 @@ class MouseDragManager {
                     } else {
                         this.appendPlaceholderToGrid(grid);
                     }
+                    
+                    // デバッグ: プレースホルダー挿入直後の状態
+                    console.log('[Drag Start] Placeholder inserted, grid children:', 
+                        Array.from(grid.children).map(child => ({
+                            type: child.classList.contains('shortcut-placeholder') ? 'placeholder' : 
+                                  child.dataset.isAddButton ? 'add-button' : 'item',
+                            index: child.dataset.index || 'N/A'
+                        }))
+                    );
                     
                     // 元の要素を一時的にグリッドから削除（親要素を確認してから）
                     if (this.draggedElement.parentNode === grid) {
@@ -212,9 +247,9 @@ class MouseDragManager {
         }
 
         if (this.isDragging && this.dragClone) {
-            // ドラッグ中のクローン要素を移動
-            this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
-            this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+            // ターゲット位置を更新（実際の移動はアニメーションループで処理）
+            this.targetX = e.clientX - this.offsetX;
+            this.targetY = e.clientY - this.offsetY;
 
             // ホバー中の要素を検出
             const elementBelow = this.getElementBelow(e.clientX, e.clientY);
@@ -241,7 +276,6 @@ class MouseDragManager {
                                 // プレースホルダーを目立たなくする
                                 if (this.placeholder) {
                                     this.placeholder.classList.remove('drop-zone');
-                                    this.placeholder.style.opacity = '0.3';
                                 }
                                 // 拒否を示す視覚的フィードバック
                                 elementBelow.classList.add('folder-reject');
@@ -252,13 +286,24 @@ class MouseDragManager {
                                 // プレースホルダーからドロップゾーンクラスを削除
                                 if (this.placeholder) {
                                     this.placeholder.classList.remove('drop-zone');
-                                    this.placeholder.style.visibility = '';
-                                    this.placeholder.style.opacity = '';
                                 }
                                 elementBelow.classList.add('drag-over');
                                 elementBelow.classList.add('folder-hover');
                             }
                         } 
+                        // フォルダーを通常のショートカットに重ねた場合は拒否
+                        else if (draggedShortcut && draggedShortcut.isFolder && 
+                                 targetShortcut && !targetShortcut.isFolder &&
+                                 dropXPercent >= 0.25 && dropXPercent <= 0.75) {
+                            this.currentDropMode = null;
+                            this.clearHoverEffects();
+                            // プレースホルダーを目立たなくする
+                            if (this.placeholder) {
+                                this.placeholder.classList.remove('drop-zone');
+                            }
+                            // 拒否を示す視覚的フィードバック
+                            elementBelow.classList.add('folder-reject');
+                        }
                         // 通常のショートカット同士の場合
                         else if (!targetShortcut.isFolder && !draggedShortcut.isFolder &&
                                  dropXPercent >= 0.4 && dropXPercent <= 0.6) {
@@ -279,7 +324,6 @@ class MouseDragManager {
                             // プレースホルダーを表示
                             if (this.placeholder) {
                                 this.placeholder.style.visibility = '';
-                                this.placeholder.style.opacity = '';
                             }
                             
                             // グリッドのレイアウト情報を取得して端の検出を改善
@@ -346,8 +390,6 @@ class MouseDragManager {
                 // プレースホルダーからドロップゾーンクラスを削除
                 if (this.placeholder) {
                     this.placeholder.classList.remove('drop-zone');
-                    this.placeholder.style.visibility = '';
-                    this.placeholder.style.opacity = '';
                 }
                 this.currentDropMode = null;
             }
@@ -572,16 +614,106 @@ class MouseDragManager {
         // DOM上の位置に基づいてプレースホルダーを移動
         this.insertPlaceholderAtTarget(grid, targetElement, insertBefore);
         
-        // アイテムを移動
-        this.moveItemsForPlaceholder(grid);
+        // アイテムを移動（FLIPアニメーションで処理されるため不要）
+        // this.moveItemsForPlaceholder(grid);
         console.log('=== END SHOW INSERT MARKER ===');
     }
     
     insertPlaceholderAtTarget(grid, targetElement, insertBefore) {
+        console.log('[insertPlaceholderAtTarget] Called with:', {
+            targetIndex: targetElement.dataset.index,
+            insertBefore: insertBefore,
+            placeholderExists: !!this.placeholder
+        });
+        
         // ターゲット要素がグリッド内にない場合はスキップ
         if (!grid.contains(targetElement)) {
             console.warn('Target element is not in the specified grid');
             return;
+        }
+        
+        // ドラッグ中の要素の場合は何もしない
+        if (parseInt(targetElement.dataset.index) === this.draggedIndex) {
+            console.log('[insertPlaceholderAtTarget] Target is dragged element, skipping');
+            return;
+        }
+        
+        // プレースホルダーの現在位置を記録
+        const placeholderCurrentIndex = this.placeholder.parentNode === grid ? 
+            Array.from(grid.children).indexOf(this.placeholder) : -1;
+        
+        // ターゲット位置を計算
+        let targetIndex = Array.from(grid.children).indexOf(targetElement);
+        if (!insertBefore) {
+            targetIndex++;
+        }
+        
+        // 同じ位置の場合は何もしない
+        if (placeholderCurrentIndex === targetIndex) {
+            console.log('[insertPlaceholderAtTarget] Placeholder already at target position');
+            return;
+        }
+        
+        console.log(`[insertPlaceholderAtTarget] Moving placeholder from ${placeholderCurrentIndex} to ${targetIndex}`);
+        
+        // アニメーションを適用するかどうかを判定（Reduce Motion設定を考慮）
+        const shouldAnimate = !this.prefersReducedMotion;
+        
+        // 移動の方向を判定
+        const moveDirection = placeholderCurrentIndex !== -1 && targetIndex > placeholderCurrentIndex ? 'right' : 'left';
+        
+        // 影響を受けるアイテムを特定
+        const items = Array.from(grid.children).filter(child => 
+            child.classList.contains('shortcut-item') && 
+            !child.dataset.isAddButton &&
+            child !== this.placeholder
+        );
+        
+        // アニメーション中ではないアイテムのtransformをリセット
+        const allItems = Array.from(grid.children).filter(child => 
+            child.classList.contains('shortcut-item')
+        );
+        
+        // アニメーション中のアイテムがある場合は、慎重に処理
+        const hasAnimatingItems = this.animatingElements.size > 0;
+        
+        allItems.forEach(item => {
+            // アニメーション中のアイテムをチェック（長時間スタックしている場合は強制クリア）
+            if (this.animatingElements.has(item)) {
+                const itemData = item.dataset.animationStartTime;
+                if (itemData) {
+                    const elapsed = Date.now() - parseInt(itemData);
+                    if (elapsed > 1000) { // 1秒以上経過している場合は強制クリア
+                        console.log(`[Animation] Force clearing stuck item ${item.dataset.index}`);
+                        this.animatingElements.delete(item);
+                        delete item.dataset.animationStartTime;
+                    } else {
+                        return; // まだアニメーション中
+                    }
+                }
+            }
+            
+            // transformをリセット
+            if (item.style.transform || item.style.transition) {
+                item.style.transition = '';
+                item.style.transform = '';
+                // レイアウトを強制的に更新
+                item.offsetHeight;
+            }
+        });
+        
+        // FLIPアニメーション用に、移動前の位置を記録
+        const firstPositions = new Map();
+        
+        if (shouldAnimate) {
+            // 影響を受ける可能性のあるアイテムの現在位置を記録
+            items.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                firstPositions.set(item, {
+                    left: rect.left,
+                    top: rect.top
+                });
+            });
         }
         
         // 既存のプレースホルダーを削除
@@ -589,12 +721,7 @@ class MouseDragManager {
             this.placeholder.parentNode.removeChild(this.placeholder);
         }
         
-        // ドラッグ中の要素の場合は何もしない
-        if (parseInt(targetElement.dataset.index) === this.draggedIndex) {
-            return;
-        }
-        
-        // 挿入位置を決定
+        // プレースホルダーを挿入
         if (insertBefore) {
             // ターゲットの前に挿入（安全に実行）
             if (!this.safeInsertBefore(grid, this.placeholder, targetElement)) {
@@ -617,6 +744,208 @@ class MouseDragManager {
             } else {
                 // 最後の要素の場合、適切な位置に追加
                 this.appendPlaceholderToGrid(grid);
+            }
+        }
+        
+        // FLIPアニメーション：移動後の位置を取得して、移動したアイテムをアニメーション
+        if (shouldAnimate) {
+            // デバッグ情報（開発時のみ）
+            // console.log('[FLIP Debug] Animation requested, animatingElements:', this.animatingElements.size);
+            
+            // アニメーションのスロットリング - 垂直移動のみに適用
+            const now = Date.now();
+            const timeSinceLastAnimation = now - this.lastAnimationTime;
+            
+            // グリッドのカラム数を計算
+            const gridRect = grid.getBoundingClientRect();
+            const gridStyle = window.getComputedStyle(grid);
+            const gap = parseInt(gridStyle.gap || '16');
+            const itemWidth = 112;
+            const columns = Math.floor((gridRect.width + gap) / (itemWidth + gap));
+            
+            // プレースホルダーの現在位置を取得
+            const allChildren = Array.from(grid.children);
+            const placeholderPos = allChildren.indexOf(this.placeholder);
+            
+            // console.log('[FLIP Debug] Placeholder position:', placeholderPos, 'Last position:', this.lastPlaceholderPosition);
+            
+            // プレースホルダーの移動方向を検出
+            const isVerticalMove = this.lastPlaceholderPosition !== null && 
+                Math.abs(placeholderPos - this.lastPlaceholderPosition) >= columns;
+            
+            // 移動タイプに応じてスロットリングを適用
+            const throttleTime = isVerticalMove ? this.animationThrottle : this.horizontalThrottle;
+            
+            // console.log(`[FLIP Debug] Move type: ${isVerticalMove ? 'vertical' : 'horizontal'}, Throttle: ${throttleTime}ms, Time since last: ${timeSinceLastAnimation}ms`);
+            
+            // スロットリングを適用
+            if (timeSinceLastAnimation < throttleTime) {
+                console.log(`[FLIP Animation] THROTTLED - ${isVerticalMove ? 'vertical' : 'horizontal'} move too frequent`);
+                return;
+            }
+            
+            this.lastAnimationTime = now;
+            this.lastPlaceholderPosition = placeholderPos;
+            
+            // DOM更新を強制的に反映
+            grid.offsetHeight;
+            
+            // 移動したアイテムを収集（複数可）
+            const movedItems = [];
+            
+            items.forEach(item => {
+                const firstPos = firstPositions.get(item);
+                const rect = item.getBoundingClientRect();
+                
+                if (firstPos) {
+                    const deltaX = firstPos.left - rect.left;
+                    const deltaY = firstPos.top - rect.top;
+                    const movement = Math.abs(deltaX) + Math.abs(deltaY);
+                    
+                    // 10px以上移動したアイテムを全て収集
+                    if (movement > 10) {
+                        movedItems.push({
+                            element: item,
+                            deltaX: deltaX,
+                            deltaY: deltaY,
+                            movement: movement,
+                            isVertical: Math.abs(deltaY) > Math.abs(deltaX), // 垂直移動かどうか
+                            isDiagonal: Math.abs(deltaX) > 10 && Math.abs(deltaY) > 10 // 斜め移動かどうか
+                        });
+                    }
+                }
+            });
+            
+            // 移動したアイテム全てにアニメーションを適用
+            if (movedItems.length > 0) {
+                // console.log(`[FLIP Animation] ${movedItems.length} items will be animated`);
+                
+                this.isAnimating = true;
+                
+                // アニメーションを1フレームで処理
+                requestAnimationFrame(() => {
+                    movedItems.forEach((itemData) => {
+                        const { element, deltaX, deltaY, movement, isDiagonal } = itemData;
+                        
+                        // 既にアニメーション中の場合はスキップ
+                        if (this.animatingElements.has(element)) {
+                            console.log(`[FLIP Debug] Skipping duplicate animation for item ${element.dataset.index}`);
+                            return;
+                        }
+                        
+                        this.animatingElements.add(element);
+                        element.dataset.animationStartTime = Date.now(); // アニメーション開始時刻を記録
+                        
+                        // アニメーション開始前に既存のtransformとtransitionを必ずクリア
+                        element.style.transition = '';
+                        element.style.transform = '';
+                        element.style.opacity = '';
+                        // Force reflow
+                        element.offsetHeight;
+                    
+                    // 移動距離を制限
+                    const gridStyle = window.getComputedStyle(grid);
+                    const gap = parseInt(gridStyle.gap || '16');
+                    const itemWidth = 112;
+                    const itemHeight = 112;
+                    const maxSingleMove = itemWidth + gap;
+                    
+                    // 斜め移動の場合はより厳しく制限
+                    let clampedDeltaX = deltaX;
+                    let clampedDeltaY = deltaY;
+                    
+                    if (isDiagonal) {
+                        // 斜め移動：各軸をアイテムサイズの30%に制限（約34px）
+                        const diagonalLimit = Math.min(itemWidth, itemHeight) * 0.3;
+                        clampedDeltaX = Math.max(-diagonalLimit, Math.min(diagonalLimit, deltaX));
+                        clampedDeltaY = Math.max(-diagonalLimit, Math.min(diagonalLimit, deltaY));
+                        
+                        console.log(`[Diagonal Movement] Item ${element.dataset.index}: ` +
+                            `Original(${Math.round(deltaX)}, ${Math.round(deltaY)}) → ` +
+                            `Clamped(${Math.round(clampedDeltaX)}, ${Math.round(clampedDeltaY)}) ` +
+                            `(limit: ${diagonalLimit}px)`);
+                    } else {
+                        // 通常移動：最大3アイテム分
+                        const maxDeltaX = maxSingleMove * 3;
+                        clampedDeltaX = Math.max(-maxDeltaX, Math.min(maxDeltaX, deltaX));
+                    }
+                    
+                    // 即座に元の位置に戻す（視覚的には変化なし）
+                    element.style.transform = `translate(${clampedDeltaX}px, ${clampedDeltaY}px)`;
+                    element.style.transition = 'none';
+                    
+                    // レイアウトを強制的に更新
+                    element.offsetHeight;
+                    
+                        // 次のフレームでアニメーションを適用
+                        requestAnimationFrame(() => {
+                        
+                        if (itemData.isDiagonal) {
+                        // 斜め移動：透明度を下げて視覚的負荷を軽減
+                        element.classList.add('position-changing');
+                        element.style.transition = 'transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.2s ease-out';
+                        element.style.opacity = '0.3';
+                        element.style.transform = '';
+                        
+                        // console.log(`[FLIP Debug] Applied diagonal animation to item ${element.dataset.index}`);
+                        
+                        // 透明度を戻す
+                        setTimeout(() => {
+                            element.style.opacity = '';
+                        }, 200);
+                    } else if (Math.abs(deltaY) > 10) {
+                        // 垂直移動
+                        element.classList.add('position-changing');
+                        element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
+                        element.style.transform = '';
+                        
+                        // console.log(`[FLIP Debug] Applied vertical animation to item ${element.dataset.index}`);
+                    } else {
+                        // 水平移動 - より速くて滑らかなアニメーション
+                        element.classList.add('position-changing');
+                        element.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                        element.style.transform = '';
+                        
+                        // console.log(`[FLIP Debug] Applied horizontal animation to item ${element.dataset.index}`);
+                    }
+                        
+                        // アニメーション終了後にクリーンアップ
+                        // transitionendイベントを使用してより正確なタイミングで処理
+                        const cleanupAnimation = () => {
+                            element.style.transition = '';
+                            element.style.transform = '';
+                            element.style.opacity = '';
+                            element.classList.remove('position-changing');
+                            this.animatingElements.delete(element);
+                            delete element.dataset.animationStartTime; // タイムスタンプを削除
+                            
+                            // 全てのアニメーションが終了したらフラグをクリア
+                            if (this.animatingElements.size === 0) {
+                                this.isAnimating = false;
+                            }
+                        };
+                        
+                        // transitionendイベントリスナーを追加
+                        const transitionEndHandler = (e) => {
+                            if (e.propertyName === 'transform') {
+                                element.removeEventListener('transitionend', transitionEndHandler);
+                                cleanupAnimation();
+                            }
+                        };
+                        
+                        element.addEventListener('transitionend', transitionEndHandler);
+                        
+                        // フォールバックとしてタイムアウトも設定
+                        const cleanupDelay = itemData.isDiagonal ? 450 : 350;
+                        setTimeout(() => {
+                            element.removeEventListener('transitionend', transitionEndHandler);
+                            if (this.animatingElements.has(element)) {
+                                cleanupAnimation();
+                            }
+                        }, cleanupDelay);
+                        });
+                    });
+                });
             }
         }
         
@@ -792,9 +1121,19 @@ class MouseDragManager {
         // デバッグ情報
         console.log(`[MoveItems] Grid columns: ${columns}, Placeholder at: ${placeholderIndex}`);
         
-        // すべてのアイテムの移動をリセット
+        // 前回の位置を記録してアニメーションクラスを付与
+        if (!this.previousPlaceholderIndex) {
+            this.previousPlaceholderIndex = placeholderIndex;
+        }
+        
+        // プレースホルダーの位置を記録（FLIPアニメーションで使用）
+        if (this.previousPlaceholderIndex !== placeholderIndex) {
+            this.previousPlaceholderIndex = placeholderIndex;
+        }
+        
+        // すべてのアイテムのtransformをリセット（FLIPアニメーションに任せる）
         allChildren.forEach(item => {
-            if (item !== this.placeholder) {
+            if (item !== this.placeholder && !this.animatingElements.has(item)) {
                 item.style.transform = '';
             }
         });
@@ -871,35 +1210,29 @@ class MouseDragManager {
     }
     
     hideInsertMarker() {
-        // アイテムのスタイルをリセット
+        // アイテムのスタイルをリセット（FLIPアニメーションに任せる）
         const grid = this.getTargetGrid();
         if (grid) {
             const items = grid.querySelectorAll('.shortcut-item');
             items.forEach(item => {
-                // スムーズなリセットアニメーション
-                item.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                item.style.transform = '';
-                item.style.transitionDelay = '';
+                // アニメーション中でないアイテムのみリセット
+                if (!this.animatingElements.has(item)) {
+                    item.style.transform = '';
+                    item.style.transitionDelay = '';
+                    item.style.transition = '';
+                }
                 // ドラッグ中のアイテムはDOMから削除されているのでスキップ
                 if (parseInt(item.dataset.index) !== this.draggedIndex) {
                     item.style.pointerEvents = '';
                     item.classList.remove('moving');
-                    // 表示状態と透明度をリセット
                     item.style.opacity = '';
                 }
-                
-                // アニメーション完了後にトランジションをクリア
-                setTimeout(() => {
-                    item.style.transition = '';
-                }, 300);
             });
         }
         
         // プレースホルダーからドロップゾーンクラスを削除
         if (this.placeholder) {
             this.placeholder.classList.remove('drop-zone');
-            this.placeholder.style.visibility = '';
-            this.placeholder.style.opacity = '';
         }
         
         this.pendingInsertIndex = null;
@@ -907,6 +1240,9 @@ class MouseDragManager {
 
     cleanupAfterReorder() {
         console.log('[MouseDrag] cleanupAfterReorder called');
+        
+        // スムーズアニメーションを停止
+        this.stopSmoothAnimation();
         
         // クローンを削除
         if (this.dragClone && this.dragClone.parentNode) {
@@ -948,6 +1284,19 @@ class MouseDragManager {
         this.hasMoved = false; // クリック可能にするためリセット
         this.currentDropMode = null;
         this.originalItemPositions.clear();
+        this.previousPlaceholderIndex = null;
+        this.isAnimating = false;
+        this.animatingElements.clear();
+        
+        // 全てのアイテムからアニメーション関連データを削除
+        const allItems = document.querySelectorAll('.shortcut-item');
+        allItems.forEach(item => {
+            delete item.dataset.animationStartTime;
+            item.classList.remove('position-changing');
+            item.style.transition = '';
+            item.style.transform = '';
+            item.style.opacity = '';
+        });
         
         // ドラッグ中のクラスを削除
         document.body.classList.remove('dragging');
@@ -959,6 +1308,9 @@ class MouseDragManager {
     
     cleanup() {
         console.log('[MouseDrag] Cleanup called - draggedIndex:', this.draggedIndex);
+        
+        // スムーズアニメーションを停止
+        this.stopSmoothAnimation();
         
         // クローンを削除
         if (this.dragClone && this.dragClone.parentNode) {
@@ -1018,6 +1370,12 @@ class MouseDragManager {
             }
         });
 
+        // ドラッグアウトインジケーターを削除
+        if (this.dragOutIndicator) {
+            this.dragOutIndicator.remove();
+            this.dragOutIndicator = null;
+        }
+
         // hasMoved状態は即座にリセット（下記の状態リセットで処理される）
 
         // 状態をリセット
@@ -1029,6 +1387,19 @@ class MouseDragManager {
         this.hasMoved = false; // クリック可能にするためリセット
         this.currentDropMode = null;
         this.originalItemPositions.clear();
+        this.previousPlaceholderIndex = null;
+        this.isAnimating = false;
+        this.animatingElements.clear();
+        
+        // 全てのアイテムからアニメーション関連データを削除
+        const allItems = document.querySelectorAll('.shortcut-item');
+        allItems.forEach(item => {
+            delete item.dataset.animationStartTime;
+            item.classList.remove('position-changing');
+            item.style.transition = '';
+            item.style.transform = '';
+            item.style.opacity = '';
+        });
         
         // ドラッグ中のクラスを削除
         document.body.classList.remove('dragging');
@@ -1051,6 +1422,46 @@ class MouseDragManager {
                 placeholder.parentNode.removeChild(placeholder);
             }
         });
+    }
+    
+    // スムーズアニメーションの開始
+    startSmoothAnimation() {
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+        
+        const animate = () => {
+            if (!this.isDragging || !this.dragClone) {
+                this.stopSmoothAnimation();
+                return;
+            }
+            
+            // 現在位置を目標位置に向けて補間
+            const dx = this.targetX - this.currentX;
+            const dy = this.targetY - this.currentY;
+            
+            // 距離が十分小さい場合はスキップ（パフォーマンス最適化）
+            if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+                this.currentX += dx * this.smoothingFactor;
+                this.currentY += dy * this.smoothingFactor;
+                
+                // クローン要素の位置を更新
+                this.dragClone.style.left = `${this.currentX}px`;
+                this.dragClone.style.top = `${this.currentY}px`;
+            }
+            
+            this.animationFrame = requestAnimationFrame(animate);
+        };
+        
+        this.animationFrame = requestAnimationFrame(animate);
+    }
+    
+    // スムーズアニメーションの停止
+    stopSmoothAnimation() {
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
     }
 }
 
@@ -1141,8 +1552,9 @@ class FolderMouseDragManager extends MouseDragManager {
         
         // ドラッグ中のクローン要素を移動
         if (this.isDragging && this.dragClone) {
-            this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
-            this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+            // ターゲット位置を更新（実際の移動はアニメーションループで処理）
+            this.targetX = e.clientX - this.offsetX;
+            this.targetY = e.clientY - this.offsetY;
         }
         
         // モーダルの外にドラッグしているかチェック
@@ -1190,7 +1602,6 @@ class FolderMouseDragManager extends MouseDragManager {
                             // プレースホルダーを表示
                             if (this.placeholder) {
                                 this.placeholder.style.visibility = '';
-                                this.placeholder.style.opacity = '';
                             }
                             
                             const insertBefore = dropXPercent < 0.5;
@@ -1220,17 +1631,24 @@ class FolderMouseDragManager extends MouseDragManager {
             this.dragClone.style.transition = 'opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             this.dragClone.style.position = 'fixed';
             this.dragClone.style.zIndex = '9999';
-            this.dragClone.style.opacity = '0.85';
+            this.dragClone.style.opacity = '0.9';
             this.dragClone.style.cursor = 'grabbing';
             this.dragClone.style.pointerEvents = 'none';
-            this.dragClone.style.transform = 'scale(1.05)';
-            this.dragClone.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+            this.dragClone.style.transform = 'scale(1.1)';
+            this.dragClone.style.boxShadow = '0 12px 32px rgba(0,0,0,0.25)';
             document.body.appendChild(this.dragClone);
         }
         
-        // クローンの位置を設定
-        this.dragClone.style.left = `${e.clientX - this.offsetX}px`;
-        this.dragClone.style.top = `${e.clientY - this.offsetY}px`;
+        // 初期位置を設定
+        this.currentX = e.clientX - this.offsetX;
+        this.currentY = e.clientY - this.offsetY;
+        this.targetX = this.currentX;
+        this.targetY = this.currentY;
+        this.dragClone.style.left = `${this.currentX}px`;
+        this.dragClone.style.top = `${this.currentY}px`;
+        
+        // スムーズアニメーションを開始
+        this.startSmoothAnimation();
         
         // 元の要素をプレースホルダーに置き換える
         const grid = this.getTargetGrid();
@@ -1275,6 +1693,12 @@ class FolderMouseDragManager extends MouseDragManager {
             // elementBelowがnullまたはmodalContent外の場合はドラッグアウト成功
             if (!elementBelow || !modalContent.contains(elementBelow)) {
                 // フォルダーから外に移動
+                // ドラッグアウトインジケーターだけ先に削除
+                if (this.dragOutIndicator) {
+                    this.dragOutIndicator.remove();
+                    this.dragOutIndicator = null;
+                }
+                
                 // First update the modal content without re-rendering the main grid
                 this.shortcutManager.moveShortcutToFolder(this.draggedIndex, null, true).then(() => {
                     // Update the folder modal content only
@@ -1296,7 +1720,7 @@ class FolderMouseDragManager extends MouseDragManager {
                         this.shortcutManager.render({ skipAnimation: true });
                     }, 50);
                 });
-                // ドラッグアウトインジケーターは親クラスのcleanupで削除される
+                // ドラッグアウトインジケーターは削除済み、その他のクリーンアップを実行
                 this.cleanup();
                 return;
             }
@@ -1374,6 +1798,12 @@ class FolderMouseDragManager extends MouseDragManager {
             }
         }
         
+        // ドラッグアウトインジケーターを確実に削除
+        if (this.dragOutIndicator) {
+            this.dragOutIndicator.remove();
+            this.dragOutIndicator = null;
+        }
+        
         super.cleanup();
     }
     
@@ -1410,11 +1840,15 @@ class FolderMouseDragManager extends MouseDragManager {
             return;
         }
         
+        console.log('[Folder showInsertMarker] Target element:', {
+            index: targetElement.dataset.index,
+            insertBefore: insertBefore
+        });
         
         // プレースホルダーにドロップゾーンクラスを追加
         this.placeholder.classList.add('drop-zone');
         
-        // DOM上の位置に基づいてプレースホルダーを移動
+        // DOM上の位置に基づいてプレースホルダーを移動（FLIPアニメーション付き）
         this.insertPlaceholderAtTarget(grid, targetElement, insertBefore);
         
         // フォルダー内でのアイテム移動は特別な処理不要（プレースホルダーが位置を示す）
